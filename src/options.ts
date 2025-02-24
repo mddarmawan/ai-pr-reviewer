@@ -32,7 +32,7 @@ export class Options {
     reviewCommentLGTM = false,
     pathFilters: string[] | null = null,
     systemMessage = '',
-    openaiLightModel = 'deepseek-reasoner',
+    openaiLightModel = 'deepseek-chat',
     openaiHeavyModel = 'deepseek-reasoner',
     openaiModelTemperature = '0.0',
     openaiRetries = '3',
