@@ -260,7 +260,7 @@ ${hunks.oldHunk}
 
   let statusMsg = `<details>
 <summary>Commits</summary>
-Files that changed in the full PR diff from base to head ${highestReviewedCommitId} and ${
+Files that changed in the full PR diff from base to head ${
     context.payload.pull_request.head.sha
   } commits.
 </details>
