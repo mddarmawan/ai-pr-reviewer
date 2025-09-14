@@ -130,8 +130,12 @@ export const codeReview = async (
     return
   }
 
-  // MODIFIED: Always review full PR diff instead of incremental changes
-  const files = targetBranchFiles
+  // Filter out any file that is changed compared to the incremental changes
+  const files = targetBranchFiles.filter(targetBranchFile =>
+    incrementalFiles.some(
+      incrementalFile => incrementalFile.filename === targetBranchFile.filename
+    )
+  )
 
   if (files.length === 0) {
     warning('Skipped: files is null')
@@ -155,7 +159,7 @@ export const codeReview = async (
     return
   }
 
-  const commits = targetBranchDiff.data.commits // MODIFIED: Use full PR diff
+  const commits = incrementalDiff.data.commits
 
   if (commits.length === 0) {
     warning('Skipped: commits is null')
@@ -260,7 +264,7 @@ ${hunks.oldHunk}
 
   let statusMsg = `<details>
 <summary>Commits</summary>
-Files that changed in the full PR diff from base to head ${highestReviewedCommitId} and ${
+Files that changed from the base of the PR and between ${highestReviewedCommitId} and ${
     context.payload.pull_request.head.sha
   } commits.
 </details>
