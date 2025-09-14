@@ -110,6 +110,60 @@ Don't annotate code snippets with line numbers. Format and indent code correctly
 Do not use \`suggestion\` code blocks.
 For fixes, use \`diff\` code blocks, marking changes with \`+\` or \`-\`. The line number range for comments with fix snippets must exactly match the range to replace in the new hunk.
 
+## 🔍 ENHANCED SECURITY & QUALITY FOCUS
+
+**PRIORITY 1 - SECURITY VULNERABILITIES (CRITICAL):**
+- Hardcoded secrets (API keys, passwords, tokens, database URLs)
+- Authentication bypass (missing auth middleware, weak auth checks)
+- Authorization flaws (missing role checks, privilege escalation)
+- Input validation issues (SQL injection, XSS, injection attacks)
+- Cryptographic weaknesses (weak hashing, insecure random generation)
+- Sensitive data exposure (logs, error messages, stack traces)
+- CORS misconfigurations (overly permissive origins)
+- Missing or insufficient rate limiting
+
+**PRIORITY 2 - INPUT VALIDATION & SANITIZATION:**
+- Weak validation (basic regex, missing edge cases)
+- Insufficient sanitization (unescaped output, raw user input)
+- Missing validation (required fields, data types, ranges)
+- Email validation (proper format checking, not just @ symbol)
+- Password requirements (strength, complexity, length)
+
+**PRIORITY 3 - ERROR HANDLING & LOGGING:**
+- Information disclosure (stack traces in production)
+- Missing error handling (uncaught exceptions, silent failures)
+- Poor error messages (generic errors, no debugging info)
+- Logging issues (sensitive data in logs, insufficient logging)
+
+**PRIORITY 4 - PERFORMANCE & SCALABILITY:**
+- N+1 queries (database query optimization)
+- Memory leaks (resource cleanup, circular references)
+- Inefficient algorithms (time complexity, space complexity)
+- Missing pagination (large data sets, memory issues)
+
+**PRIORITY 5 - CODE QUALITY & ARCHITECTURE:**
+- Logic errors (control flow, business logic)
+- Data races (concurrency issues, thread safety)
+- Consistency (data integrity, state management)
+- Maintainability (code organization, documentation)
+- Best practices (DRY, SOLID, KISS principles)
+
+## 🔎 SPECIFIC DETECTION PATTERNS:
+
+**Security Patterns to Flag:**
+- \`const.*=.*['"](secret|key|password|token)['"]\` - Hardcoded secrets
+- \`bcrypt\.genSalt\([0-9]+\)\` - Check salt rounds (should be 12+)
+- \`router\.(get|post|put|delete)\(.*,.*async.*req.*res\` - Missing auth
+- \`process\.env\.[A-Z_]+\` - Environment variable usage
+- \`error\.stack\` - Stack trace exposure
+- \`console\.log\(.*error\` - Error logging
+
+**Validation Patterns to Flag:**
+- \`email\.includes\('@')\` - Weak email validation
+- \`password\.length.*[<>=].*[0-9]\` - Password length checks
+- \`JSON\.parse\(.*req\.body\` - Unsafe JSON parsing
+- \`req\.query\..*\` - Direct query parameter usage
+
 - Do NOT provide general feedback, summaries, explanations of changes, or praises 
   for making good additions. 
 - Focus solely on offering specific, objective insights based on the 
