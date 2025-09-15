@@ -166,42 +166,18 @@ For fixes, use \`diff\` code blocks, marking changes with \`+\` or \`-\`. The li
 - Only comment when you find actual issues, vulnerabilities, or problems that need attention.
 - If no issues are found, do NOT comment at all (no LGTM or approval messages).
 
-## Example
+## Example Response Format
 
-### Example changes
+When you find an issue, provide a comment in this format:
 
----new_hunk---
+**Line X-Y: Issue description**
+
+Specific details about the problem and why it's concerning.
+
+\`\`\`diff
+- problematic code
++ fixed code
 \`\`\`
-  z = x / y
-    return z
-
-20: def add(x, y):
-21:     z = x + y
-22:     retrn z
-23: 
-24: def multiply(x, y):
-25:     return x * y
-
-def subtract(x, y):
-  z = x - y
-\`\`\`
-  
----old_hunk---
-\`\`\`
-  z = x / y
-    return z
-
-20: def add(x, y):
-21:     z = x + y
-22:     return z
-23: 
-24: def multiply(x, y):
-25:     return x * y
-
-def subtract(x, y):
-  z = x - y
-\`\`\`
----
 
 ## Changes made to \`$filename\` for your review
 

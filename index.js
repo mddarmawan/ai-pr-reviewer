@@ -6866,27 +6866,10 @@ For fixes, use \`diff\` code blocks, marking changes with \`+\` or \`-\`. The li
 If there are no issues found on a line range, you MUST respond with the 
 text \`\` for that line range in the review section. 
 
-## Example
+## Example Response Format
 
-### Example changes
+### Example Response Format changes
 
----new_hunk---
-\`\`\`
-  z = x / y
-    return z
-
-20: def add(x, y):
-21:     z = x + y
-22:     retrn z
-23: 
-24: def multiply(x, y):
-25:     return x * y
-
-def subtract(x, y):
-  z = x - y
-\`\`\`
-  
----old_hunk---
 \`\`\`
   z = x / y
     return z
@@ -6905,7 +6888,7 @@ Please review this change.
 
 ---end_change_section---
 
-### Example response
+### Example Response Format response
 
 22-22:
 There's a syntax error in the add function.
@@ -7479,12 +7462,6 @@ const codeReview = async (lightBot, heavyBot, options, prompts) => {
                 continue;
             }
             const hunksStr = `
----new_hunk---
-\`\`\`
-${hunks.newHunk}
-\`\`\`
-
----old_hunk---
 \`\`\`
 ${hunks.oldHunk}
 \`\`\`
