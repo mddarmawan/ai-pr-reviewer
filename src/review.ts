@@ -319,7 +319,7 @@ ${
     ins.fileDiff = fileDiff
 
     // render prompt based on inputs so far
-    const summarizePrompt = prompts.renderSummarizeFileDiff(
+    const summarizePrompt = prompts.renderSummarizeFileDiff(new Inputs()
       ins,
       options.reviewSimpleChanges
     )
