@@ -16,11 +16,9 @@ export class TokenLimits {
       this.maxTokens = 8000
       this.responseTokens = 2000
     } else if (model === 'deepseek-reasoner') {
-      // DeepSeek Reasoner: 128K context, 32K default output, 64K max output
       this.maxTokens = 128000
       this.responseTokens = 32000
     } else if (model === 'deepseek-chat') {
-      // DeepSeek Chat: 128K context, 4K default output, 8K max output
       this.maxTokens = 128000
       this.responseTokens = 4000
     } else {
