@@ -84,7 +84,7 @@ export const codeReview = async (
 
   const allCommitIds = await commenter.getAllCommitIds()
   // find highest reviewed commit id
-  let highestReviewedCommitId = ''
+  let highestReviewedCommitId = context.payload.pull_request.base.sha
   if (existingCommitIdsBlock !== '') {
     highestReviewedCommitId = commenter.getHighestReviewedCommitId(
       allCommitIds,
