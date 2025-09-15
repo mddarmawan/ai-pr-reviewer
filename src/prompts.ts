@@ -184,3 +184,14 @@ Specific details about the problem and why it's concerning.
 $patches
 `
 }
+
+  // Add missing methods that review.ts expects
+  renderSummarizeFileDiff = (inputs: Inputs): string => this.summarizeFileDiff
+  renderSummarizeChangesets = (inputs: Inputs): string => this.summarize
+  renderSummarize = (inputs: Inputs): string => this.summarize
+  renderSummarizeReleaseNotes = (inputs: Inputs): string => this.summarizeReleaseNotes
+  renderSummarizeShort = (inputs: Inputs): string => this.summarize
+  renderReviewFileDiff = (inputs: Inputs): string => this.reviewFileDiff
+  renderComment = (inputs: Inputs): string => this.reviewFileDiff
+  comment = this.reviewFileDiff
+}
