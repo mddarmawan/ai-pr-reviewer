@@ -1,36 +1,33 @@
-name: 'Enhanced AI-based PR Reviewer & Summarizer with Chat Capabilities'
-description: 'Enhanced AI-based PR Reviewer & Summarizer with Chat Capabilities'
-branding:
-  icon: 'git-merge'
-  color: 'orange'
-author: 'CodeRabbit LLC'
+name: 'AI PR Reviewer'
+description: 'AI-powered pull request reviewer and summarizer'
 inputs:
   debug:
+    description: 'Enable debug logging'
     required: false
-    description: 'Enable debug mode'
+    default: 'false'
+  review_simple_changes:
+    description: 'Review simple changes'
+    required: false
+    default: 'true'
+  review_comment_lgtm:
+    description: 'Review LGTM comments'
+    required: false
+    default: 'true'
+  disable_review:
+    description: 'Disable review'
+    required: false
+    default: 'false'
+  disable_release_notes:
+    description: 'Disable release notes'
+    required: false
     default: 'false'
   max_files:
+    description: 'Maximum number of files to review'
     required: false
-    description:
-      'Max files to summarize and review. Less than or equal to 0 means no
-      limit.'
-    default: '150'
-  review_simple_changes:
-    required: false
-    description: 'Review even when the changes are simple'
-    default: 'false'
-  review_comment_lgtm:
-    required: false
-    description: 'Leave comments even if the patch is LGTM'
-    default: 'false'
+    default: '50'
   path_filters:
+    description: 'Path filters for files to review'
     required: false
-    description: |
-      The path filters, e.g., "src/**.py", "!dist/**", each line will be considered as one pattern.
-      See also
-
-      - https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#onpushpull_requestpull_request_targetpathspaths-ignore
-      - https://github.com/isaacs/minimatch
     default: |
       !dist/**
       !**/*.app
@@ -136,159 +133,60 @@ inputs:
       !**/*.min.js.css
       !**/*.tfstate
       !**/*.tfstate.backup
-  disable_review:
+  system_message:
+    description: 'Custom system message for the AI'
     required: false
-    description: 'Only provide the summary and skip the code review.'
-    default: 'false'
-  disable_release_notes:
+    default: ''
+  summarize:
+    description: 'Custom summarize prompt'
     required: false
-    description: 'Disable release notes'
-    default: 'false'
+    default: ''
+  summarize_release_notes:
+    description: 'Custom release notes prompt'
+    required: false
+    default: ''
   openai_base_url:
+    description: 'OpenAI API base URL'
     required: false
-    description: 'The url of the openai api interface.'
-    default: 'https://api.deepseek.com'
+    default: 'https://api.openai.com'
   openai_light_model:
+    description: 'OpenAI light model'
     required: false
-    description:
-      'Model to use for simple tasks like summarizing diff on a file.'
-    default: 'deepseek-chat'
+    default: 'gpt-3.5-turbo'
   openai_heavy_model:
+    description: 'OpenAI heavy model'
     required: false
-    description: 'Model to use for complex tasks such as code reviews.'
-    default: 'deepseek-reasoner'
+    default: 'gpt-4'
   openai_model_temperature:
+    description: 'OpenAI model temperature'
     required: false
-    description: 'Temperature for GPT model'
     default: '0.0'
   openai_retries:
+    description: 'OpenAI retries'
     required: false
-    description:
-      'How many times to retry OpenAI API in case of timeouts or errors?'
     default: '5'
   openai_timeout_ms:
+    description: 'OpenAI timeout in milliseconds'
     required: false
-    description: 'Timeout for OpenAI API call in millis'
     default: '360000'
   openai_concurrency_limit:
+    description: 'OpenAI concurrency limit'
     required: false
-    description: 'How many concurrent API calls to make to OpenAI servers?'
     default: '6'
   github_concurrency_limit:
+    description: 'GitHub concurrency limit'
     required: false
-    description: 'How many concurrent API calls to make to GitHub?'
     default: '6'
-  system_message:
-    required: false
-    description: 'System message to be sent to OpenAI'
-    default: |
-      You are `@coderabbitai` (aka `github-actions[bot]`), a language model
-      trained by OpenAI. Your purpose is to act as a highly experienced
-      software engineer and security expert, providing thorough code reviews
-      with a focus on identifying critical issues.
-
-      ## PRIMARY FOCUS AREAS (in order of priority):
-
-      ### 🔒 SECURITY VULNERABILITIES (CRITICAL)
-      - **Hardcoded secrets**: API keys, passwords, tokens, database URLs
-      - **Authentication bypass**: Missing auth middleware, weak auth checks
-      - **Authorization flaws**: Missing role checks, privilege escalation
-      - **Input validation**: SQL injection, XSS, injection attacks
-      - **Cryptographic issues**: Weak hashing, insecure random generation
-      - **Sensitive data exposure**: Logs, error messages, stack traces
-      - **CORS misconfigurations**: Overly permissive origins
-      - **Rate limiting**: Missing or insufficient rate limiting
-
-      ### 🛡️ INPUT VALIDATION & SANITIZATION
-      - **Weak validation**: Basic regex, missing edge cases
-      - **Insufficient sanitization**: Unescaped output, raw user input
-      - **Missing validation**: Required fields, data types, ranges
-      - **Email validation**: Proper format checking, not just @ symbol
-      - **Password requirements**: Strength, complexity, length
-
-      ### ⚠️ ERROR HANDLING & LOGGING
-      - **Information disclosure**: Stack traces in production
-      - **Missing error handling**: Uncaught exceptions, silent failures
-      - **Poor error messages**: Generic errors, no debugging info
-      - **Logging issues**: Sensitive data in logs, insufficient logging
-
-      ### 🚀 PERFORMANCE & SCALABILITY
-      - **N+1 queries**: Database query optimization
-      - **Memory leaks**: Resource cleanup, circular references
-      - **Inefficient algorithms**: Time complexity, space complexity
-      - **Missing pagination**: Large data sets, memory issues
-
-      ### 🏗️ CODE QUALITY & ARCHITECTURE
-      - **Logic errors**: Control flow, business logic
-      - **Data races**: Concurrency issues, thread safety
-      - **Consistency**: Data integrity, state management
-      - **Maintainability**: Code organization, documentation
-      - **Best practices**: DRY, SOLID, KISS principles
-
-      ## DETECTION PATTERNS TO WATCH FOR:
-
-      ### Security Patterns:
-      - `const.*=.*['"](secret|key|password|token)['"]` - Hardcoded secrets
-      - `bcrypt\.genSalt\([0-9]+\)` - Check salt rounds (should be 12+)
-      - `router\.(get|post|put|delete)\(.*,.*async.*req.*res` - Missing auth
-      - `process\.env\.[A-Z_]+` - Environment variable usage
-      - `error\.stack` - Stack trace exposure
-      - `console\.log\(.*error` - Error logging
-
-      ### Validation Patterns:
-      - `email\.includes\('@')` - Weak email validation
-      - `password\.length.*[<>=].*[0-9]` - Password length checks
-      - `JSON\.parse\(.*req\.body` - Unsafe JSON parsing
-      - `req\.query\..*` - Direct query parameter usage
-
-      ## RESPONSE FORMAT:
-      - **Be specific**: Point to exact line numbers and code
-      - **Provide fixes**: Show corrected code with diff blocks
-      - **Explain impact**: Why the issue is critical
-      - **Prioritize**: Focus on security and critical issues first
-      - **Be actionable**: Give clear, implementable suggestions
-
-      Do NOT comment on minor style issues, missing comments, or trivial
-      formatting. Focus on significant concerns that could impact security,
-      performance, or functionality.
-  summarize:
-    required: false
-    description: 'The prompt for final summarization response'
-    default: |
-      Provide your final response in markdown with the following content:
-
-      - **Walkthrough**: A high-level summary of the overall change instead of
-        specific files within 80 words.
-      - **Changes**: A markdown table of files and their summaries. Group files
-        with similar changes together into a single row to save space.
-      - **Poem**: Below the changes, include a whimsical, short poem written by
-        a rabbit to celebrate the changes. Format the poem as a quote using
-        the ">" symbol and feel free to use emojis where relevant.
-
-      Avoid additional commentary as this summary will be added as a comment on the
-      GitHub pull request. Use the titles "Walkthrough" and "Changes" and they must be H2.
-
-  summarize_release_notes:
-    required: false
-    description:
-      'The prompt for generating release notes in the same chat as summarize
-      stage'
-    default: |
-      Craft concise release notes for the pull request.
-      Focus on the purpose and user impact, categorizing changes as "New Feature", "Bug Fix",
-      "Documentation", "Refactor", "Style", "Test", "Chore", or "Revert". Provide a bullet-point list,
-      e.g., "- New Feature: Added search functionality to the UI". Limit your response to 50-100 words
-      and emphasize features visible to the end-user while omitting code-level details.
   language:
+    description: 'Language for the AI'
     required: false
-    description: ISO code for the response language
-    default: en-US
+    default: 'en-US'
   bot_icon:
+    description: 'Bot icon'
     required: false
-    description: 'The icon for the bot'
     default:
       '<img src="https://avatars.githubusercontent.com/in/347564?s=41"
       alt="Image description" width="20" height="20">'
 runs:
   using: 'node16'
-  main: 'dist/index.js'
+  main: 'lib/index.js'
