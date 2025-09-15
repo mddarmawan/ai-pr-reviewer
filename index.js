@@ -9695,7 +9695,7 @@ ${filterIgnoredFiles.length > 0
         ins.filename = filename;
         ins.fileDiff = fileDiff;
         // render prompt based on inputs so far
-        const summarizePrompt = prompts.renderSummarizeFileDiff(ins, options.reviewSimpleChanges);
+        const summarizePrompt = prompts.summarizeFileDiff;
         const tokens = (0,tokenizer/* getTokenCount */.N)(summarizePrompt);
         if (tokens > options.lightTokenLimits.requestTokens) {
             (0,core.info)(`summarize: diff tokens exceeds limit, skip ${filename}`);
@@ -9758,7 +9758,7 @@ ${filename}: ${summary}
 `;
             }
             // ask chatgpt to summarize the summaries
-            const [summarizeResp] = await heavyBot.chat(prompts.renderSummarizeChangesets(inputs), {});
+            const [summarizeResp] = await heavyBot.chat(prompts.summarize, {});
             if (summarizeResp === '') {
                 (0,core.warning)('summarize: nothing obtained from openai');
             }
@@ -9768,13 +9768,13 @@ ${filename}: ${summary}
         }
     }
     // final summary
-    const [summarizeFinalResponse] = await heavyBot.chat(prompts.renderSummarize(inputs), {});
+    const [summarizeFinalResponse] = await heavyBot.chat(prompts.summarize, {});
     if (summarizeFinalResponse === '') {
         (0,core.info)('summarize: nothing obtained from openai');
     }
     if (options.disableReleaseNotes === false) {
         // final release notes
-        const [releaseNotesResponse] = await heavyBot.chat(prompts.renderSummarizeReleaseNotes(inputs), {});
+        const [releaseNotesResponse] = await heavyBot.chat(prompts.summarizeReleaseNotes, {});
         if (releaseNotesResponse === '') {
             (0,core.info)('release notes: nothing obtained from openai');
         }
@@ -9790,7 +9790,7 @@ ${filename}: ${summary}
         }
     }
     // generate a short summary as well
-    const [summarizeShortResponse] = await heavyBot.chat(prompts.renderSummarizeShort(inputs), {});
+    const [summarizeShortResponse] = await heavyBot.chat(prompts.summarize, {});
     inputs.shortSummary = summarizeShortResponse;
     let summarizeComment = `${summarizeFinalResponse}
 ${lib_commenter/* RAW_SUMMARY_START_TAG */.S7}
@@ -9851,7 +9851,7 @@ ${summariesFailed.length > 0
             const ins = inputs.clone();
             ins.filename = filename;
             // calculate tokens based on inputs so far
-            let tokens = (0,tokenizer/* getTokenCount */.N)(prompts.renderReviewFileDiff(ins));
+            let tokens = (0,tokenizer/* getTokenCount */.N)(prompts.reviewFileDiff);
             // loop to calculate total patch tokens
             let patchesToPack = 0;
             for (const [, , patch] of patches) {
@@ -9873,7 +9873,7 @@ ${summariesFailed.length > 0
                 if (patchesPacked >= patchesToPack) {
                     (0,core.info)(`unable to pack more patches into this request, packed: ${patchesPacked}, total patches: ${patches.length}, skipping.`);
                     if (options.debug) {
-                        (0,core.info)(`prompt so far: ${prompts.renderReviewFileDiff(ins)}`);
+                        (0,core.info)(`prompt so far: ${prompts.reviewFileDiff}`);
                     }
                     break;
                 }
@@ -9916,7 +9916,7 @@ ${commentChain}
             if (patchesPacked > 0) {
                 // perform review
                 try {
-                    const [response] = await heavyBot.chat(prompts.renderReviewFileDiff(ins), {});
+                    const [response] = await heavyBot.chat(prompts.reviewFileDiff, {});
                     if (response === '') {
                         (0,core.info)('review: nothing obtained from openai');
                         reviewsFailed.push(`${filename} (no response)`);
