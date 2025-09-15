@@ -4,6 +4,8 @@ export class Prompts {
   summarize: string
   reviewFileDiff: string
   comment: string
+  summarizeFileDiff: string
+  summarizeReleaseNotes: string
 
   constructor(inputs: Inputs) {
     this.summarize = `You are an expert software engineer reviewing a pull request. Your task is to provide a concise summary of the changes made in this PR.
@@ -98,6 +100,8 @@ For fixes, use diff code blocks, marking changes with + or -. The line number ra
 Remember: You are reviewing code changes, not the final state. Focus on what's being changed and whether those changes introduce vulnerabilities or issues.`
 
     this.comment = this.reviewFileDiff
+    this.summarizeFileDiff = this.summarize
+    this.summarizeReleaseNotes = this.summarize
   }
 
   system_message = (inputs: Inputs): string => {
@@ -112,15 +116,4 @@ Remember: You are reviewing code changes, not the final state. Focus on what's b
   renderSummarizeShort = (inputs: Inputs): string => this.summarize
   renderReviewFileDiff = (inputs: Inputs): string => this.reviewFileDiff
   renderComment = (inputs: Inputs): string => this.reviewFileDiff
-}
-
-  // Add missing methods that review.ts expects
-  renderSummarizeFileDiff = (inputs: Inputs): string => this.summarizeFileDiff
-  renderSummarizeChangesets = (inputs: Inputs): string => this.summarize
-  renderSummarize = (inputs: Inputs): string => this.summarize
-  renderSummarizeReleaseNotes = (inputs: Inputs): string => this.summarizeReleaseNotes
-  renderSummarizeShort = (inputs: Inputs): string => this.summarize
-  renderReviewFileDiff = (inputs: Inputs): string => this.reviewFileDiff
-  renderComment = (inputs: Inputs): string => this.reviewFileDiff
-  comment = this.reviewFileDiff
 }
