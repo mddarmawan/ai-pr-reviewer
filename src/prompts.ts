@@ -48,39 +48,6 @@ You must strictly follow the format below for triaging the diff:
 Important:
 - In your summary do not mention that the file needs a through review or caution about
   potential issues.
-- Do not provide any reasoning why you triaged the diff as \`NEEDS_REVIEW\` or \`APPROVED\`.
-- Do not mention that these changes affect the logic or functionality of the code in 
-  the summary. You must only use the triage status format above to indicate that.
-`
-  summarizeChangesets = `Provided below are changesets in this pull request. Changesets 
-are in chronlogical order and new changesets are appended to the
-end of the list. The format consists of filename(s) and the summary 
-of changes for those files. There is a separator between each changeset.
-Your task is to deduplicate and group together files with
-related/similar changes into a single changeset. Respond with the updated 
-changesets using the same format as the input. 
-
-$raw_summary
-`
-
-  summarizePrefix = `Here is the summary of changes you have generated for files:
-      \`\`\`
-      $raw_summary
-      \`\`\`
-
-`
-
-  summarizeShort = `Your task is to provide a concise summary of the changes. This 
-summary will be used as a prompt while reviewing each file and must be very clear for 
-the AI bot to understand. 
-
-Instructions:
-
-- Focus on summarizing only the changes in the PR and stick to the facts.
-- Do not provide any instructions to the bot on how to perform the review.
-- Do not mention that files need a through review or caution about potential issues.
-- Do not mention that these changes affect the logic or functionality of the code.
-- The summary should not exceed 500 words.
 `
 
   reviewFileDiff = `## GitHub PR Title
@@ -93,10 +60,10 @@ Instructions:
 $description
 \`\`\`
 
-## Summary of changes
+## Diff
 
-\`\`\`
-$short_summary
+\`\`\`diff
+$file_diff
 \`\`\`
 
 ## IMPORTANT Instructions
@@ -153,10 +120,17 @@ For fixes, use \`diff\` code blocks, marking changes with \`+\` or \`-\`. The li
 **Security Patterns to Flag:**
 - \`const.*=.*['"](secret|key|password|token)['"]\` - Hardcoded secrets
 - \`bcrypt\.genSalt\([0-9]+\)\` - Check salt rounds (should be 12+)
-- \`router\.(get|post|put|delete)\(.*,.*async.*req.*res\` - Missing auth
+- \`router\.(get|post|put|delete)\(['"][^'"]*['"],\s*async\s*\(req,\s*res\)\` - Missing auth middleware
+- \`router\.(get|post|put|delete)\(['"][^'"]*['"],\s*\(req,\s*res\)\` - Missing auth middleware (non-async)
 - \`process\.env\.[A-Z_]+\` - Environment variable usage
 - \`error\.stack\` - Stack trace exposure
 - \`console\.log\(.*error\` - Error logging
+
+**Authentication & Authorization Patterns:**
+- \`router\.(get|post|put|delete)\(['"][^'"]*['"],\s*(?!.*authenticateToken|.*auth|.*middleware).*async\s*\(req,\s*res\)\` - Missing auth
+- \`router\.(get|post|put|delete)\(['"][^'"]*['"],\s*(?!.*authenticateToken|.*auth|.*middleware).*\(req,\s*res\)\` - Missing auth (non-async)
+- Routes that access sensitive data without authentication middleware
+- API endpoints that should require authentication but don't have it
 
 **Validation Patterns to Flag:**
 - \`email\.includes\('@')\` - Weak email validation
@@ -164,13 +138,20 @@ For fixes, use \`diff\` code blocks, marking changes with \`+\` or \`-\`. The li
 - \`JSON\.parse\(.*req\.body\` - Unsafe JSON parsing
 - \`req\.query\..*\` - Direct query parameter usage
 
+**Critical Security Checks:**
+1. **Authentication Bypass**: Look for route handlers that should have authentication but don't
+2. **Authorization Issues**: Check for missing role-based access controls
+3. **Sensitive Data Exposure**: Routes that return user data without proper auth
+4. **Input Validation**: Weak or missing validation on user inputs
+5. **Error Information Disclosure**: Stack traces or sensitive info in error responses
+
 - Do NOT provide general feedback, summaries, explanations of changes, or praises 
   for making good additions. 
 - Focus solely on offering specific, objective insights based on the 
   given context and refrain from making broad comments about potential impacts on 
   the system or question intentions behind the changes.
-
-If there are no issues found on a line range, you MUST respond with the 
+- Only comment when you find actual issues, vulnerabilities, or problems that need attention.
+- If no issues are found, do NOT comment at all (no LGTM or approval messages).
 
 ## Example
 
@@ -197,138 +178,19 @@ def subtract(x, y):
   z = x / y
     return z
 
-def add(x, y):
-    return x + y
+20: def add(x, y):
+21:     z = x + y
+22:     return z
+23: 
+24: def multiply(x, y):
+25:     return x * y
 
 def subtract(x, y):
-    z = x - y
+  z = x - y
 \`\`\`
-
----comment_chains---
-\`\`\`
-Please review this change.
-\`\`\`
-
----end_change_section---
-
-### Example response
-
-22-22:
-There's a syntax error in the add function.
-\`\`\`diff
--    retrn z
-+    return z
-\`\`\`
----
-24-25:
 ---
 
 ## Changes made to \`$filename\` for your review
 
 $patches
-`
 
-  comment = `A comment was made on a GitHub PR review for a 
-diff hunk on a file - \`$filename\`. I would like you to follow 
-the instructions in that comment. 
-
-## GitHub PR Title
-
-\`$title\`
-
-## Description
-
-\`\`\`
-$description
-\`\`\`
-
-## Summary generated by the AI bot
-
-\`\`\`
-$short_summary
-\`\`\`
-
-## Entire diff
-
-\`\`\`diff
-$file_diff
-\`\`\`
-
-## Diff being commented on
-
-\`\`\`diff
-$diff
-\`\`\`
-
-## Instructions
-
-Please reply directly to the new comment (instead of suggesting 
-a reply) and your reply will be posted as-is.
-
-If the comment contains instructions/requests for you, please comply. 
-For example, if the comment is asking you to generate documentation 
-comments on the code, in your reply please generate the required code.
-
-In your reply, please make sure to begin the reply by tagging the user 
-with "@user".
-
-## Comment format
-
-\`user: comment\`
-
-## Comment chain (including the new comment)
-
-\`\`\`
-$comment_chain
-\`\`\`
-
-## The comment/request that you need to directly reply to
-
-\`\`\`
-$comment
-\`\`\`
-`
-
-  constructor(summarize = '', summarizeReleaseNotes = '') {
-    this.summarize = summarize
-    this.summarizeReleaseNotes = summarizeReleaseNotes
-  }
-
-  renderSummarizeFileDiff(
-    inputs: Inputs,
-    reviewSimpleChanges: boolean
-  ): string {
-    let prompt = this.summarizeFileDiff
-    if (reviewSimpleChanges === false) {
-      prompt += this.triageFileDiff
-    }
-    return inputs.render(prompt)
-  }
-
-  renderSummarizeChangesets(inputs: Inputs): string {
-    return inputs.render(this.summarizeChangesets)
-  }
-
-  renderSummarize(inputs: Inputs): string {
-    const prompt = this.summarizePrefix + this.summarize
-    return inputs.render(prompt)
-  }
-
-  renderSummarizeShort(inputs: Inputs): string {
-    const prompt = this.summarizePrefix + this.summarizeShort
-    return inputs.render(prompt)
-  }
-
-  renderSummarizeReleaseNotes(inputs: Inputs): string {
-    const prompt = this.summarizePrefix + this.summarizeReleaseNotes
-    return inputs.render(prompt)
-  }
-
-  renderComment(inputs: Inputs): string {
-    return inputs.render(this.comment)
-  }
-
-  renderReviewFileDiff(inputs: Inputs): string {
-    return inputs.render(this.reviewFileDiff)
-  }
-}
