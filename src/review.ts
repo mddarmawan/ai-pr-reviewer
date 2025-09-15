@@ -320,19 +320,12 @@ ${
 
     // render prompt based on inputs so far
     const summarizePrompt = prompts.summarizeFileDiff
-      ins,
-      options.reviewSimpleChanges
-    )
     const tokens = getTokenCount(summarizePrompt)
-
     if (tokens > options.lightTokenLimits.requestTokens) {
       info(`summarize: diff tokens exceeds limit, skip ${filename}`)
       summariesFailed.push(`${filename} (diff tokens exceeds limit)`)
       return null
-    }
-
-    // summarize content
-    try {
+    }    try {
       const [summarizeResp] = await lightBot.chat(summarizePrompt, {})
 
       if (summarizeResp === '') {
@@ -397,7 +390,7 @@ ${filename}: ${summary}
       }
       // ask chatgpt to summarize the summaries
       const [summarizeResp] = await heavyBot.chat(
-        prompts.summarize(inputs),
+        prompts.summarize,
         {}
       )
       if (summarizeResp === '') {
@@ -410,7 +403,7 @@ ${filename}: ${summary}
 
   // final summary
   const [summarizeFinalResponse] = await heavyBot.chat(
-    prompts.summarize(inputs),
+    prompts.summarize,
     {}
   )
   if (summarizeFinalResponse === '') {
@@ -420,7 +413,7 @@ ${filename}: ${summary}
   if (options.disableReleaseNotes === false) {
     // final release notes
     const [releaseNotesResponse] = await heavyBot.chat(
-      prompts.summarizeReleaseNotes(inputs),
+      prompts.summarizeReleaseNotes,
       {}
     )
     if (releaseNotesResponse === '') {
@@ -441,7 +434,7 @@ ${filename}: ${summary}
 
   // generate a short summary as well
   const [summarizeShortResponse] = await heavyBot.chat(
-    prompts.summarize(inputs),
+    prompts.summarize,
     {}
   )
   inputs.shortSummary = summarizeShortResponse
@@ -530,7 +523,7 @@ ${
       ins.filename = filename
 
       // calculate tokens based on inputs so far
-      let tokens = getTokenCount(prompts.reviewFileDiff(ins))
+      let tokens = getTokenCount(prompts.reviewFileDiff)
       // loop to calculate total patch tokens
       let patchesToPack = 0
       for (const [, , patch] of patches) {
@@ -557,7 +550,7 @@ ${
             `unable to pack more patches into this request, packed: ${patchesPacked}, total patches: ${patches.length}, skipping.`
           )
           if (options.debug) {
-            info(`prompt so far: ${prompts.reviewFileDiff(ins)}`)
+            info(`prompt so far: ${prompts.reviewFileDiff}`)
           }
           break
         }
@@ -616,7 +609,7 @@ ${commentChain}
         // perform review
         try {
           const [response] = await heavyBot.chat(
-            prompts.reviewFileDiff(ins),
+            prompts.reviewFileDiff,
             {}
           )
           if (response === '') {
