@@ -835,7 +835,7 @@ const parsePatch = (
     if (line.startsWith('-')) {
       oldHunkLines.push(`${line.substring(1)}`)
     } else if (line.startsWith('+')) {
-      newHunkLines.push(`${newLine}: ${line.substring(1)}`)
+      newHunkLines.push(line.substring(1))
       newLine++
     } else {
       // context line
@@ -844,7 +844,7 @@ const parsePatch = (
         removalOnly ||
         (currentLine > skipStart && currentLine <= lines.length - skipEnd)
       ) {
-        newHunkLines.push(`${newLine}: ${line}`)
+        newHunkLines.push(line)
       } else {
         newHunkLines.push(`${line}`)
       }
