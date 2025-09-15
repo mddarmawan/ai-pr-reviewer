@@ -100,7 +100,27 @@ For fixes, use diff code blocks, marking changes with + or -. The line number ra
 Remember: You are reviewing code changes, not the final state. Focus on what's being changed and whether those changes introduce vulnerabilities or issues.`
 
     this.comment = this.reviewFileDiff
-    this.summarizeFileDiff = this.summarize
+    this.summarizeFileDiff = `You are an expert software engineer reviewing a pull request. Your task is to provide a concise summary of the changes made in this PR.
+
+Focus on:
+- Key changes and their impact
+- Security implications
+- Code quality improvements
+- Potential issues or concerns
+- Overall assessment
+
+Keep the summary brief but comprehensive.
+
+## Code Changes to Review:
+
+**File:** $filename
+
+**Diff:**
+\`\`\`diff
+$file_diff
+\`\`\`
+
+Please analyze the above code changes and provide your assessment.`
     this.summarizeReleaseNotes = this.summarize
   }
 
@@ -109,11 +129,26 @@ Remember: You are reviewing code changes, not the final state. Focus on what's b
   }
 
   // Add missing methods that the code expects
-  renderSummarizeFileDiff = (inputs: Inputs): string => this.summarize
+  renderSummarizeFileDiff = (inputs: Inputs): string => {
+    return this.summarizeFileDiff
+      .replace('$filename', inputs.filename)
+      .replace('$file_diff', inputs.fileDiff)
+  }
+  
   renderSummarizeChangesets = (inputs: Inputs): string => this.summarize
   renderSummarize = (inputs: Inputs): string => this.summarize
   renderSummarizeReleaseNotes = (inputs: Inputs): string => this.summarize
   renderSummarizeShort = (inputs: Inputs): string => this.summarize
-  renderReviewFileDiff = (inputs: Inputs): string => this.reviewFileDiff
+  
+  renderReviewFileDiff = (inputs: Inputs): string => {
+    let prompt = this.reviewFileDiff
+    
+    if (inputs.patches) {
+      prompt += `\n\n## Code Changes to Review:\n\n**File:** ${inputs.filename}\n\n**Patches:**\n${inputs.patches}`
+    }
+    
+    return prompt
+  }
+  
   renderComment = (inputs: Inputs): string => this.reviewFileDiff
 }

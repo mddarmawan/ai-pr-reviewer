@@ -319,7 +319,7 @@ ${
     ins.fileDiff = fileDiff
 
     // render prompt based on inputs so far
-    const summarizePrompt = prompts.summarizeFileDiff
+    const summarizePrompt = prompts.renderSummarizeFileDiff(ins)
     const tokens = getTokenCount(summarizePrompt)
     if (tokens > options.lightTokenLimits.requestTokens) {
       info(`summarize: diff tokens exceeds limit, skip ${filename}`)
@@ -523,7 +523,7 @@ ${
       ins.filename = filename
 
       // calculate tokens based on inputs so far
-      let tokens = getTokenCount(prompts.reviewFileDiff)
+      let tokens = getTokenCount(prompts.renderReviewFileDiff(ins))
       // loop to calculate total patch tokens
       let patchesToPack = 0
       for (const [, , patch] of patches) {
@@ -550,7 +550,7 @@ ${
             `unable to pack more patches into this request, packed: ${patchesPacked}, total patches: ${patches.length}, skipping.`
           )
           if (options.debug) {
-            info(`prompt so far: ${prompts.reviewFileDiff}`)
+            info(`prompt so far: ${prompts.renderReviewFileDiff(ins)}`)
           }
           break
         }
@@ -609,7 +609,7 @@ ${commentChain}
         // perform review
         try {
           const [response] = await heavyBot.chat(
-            prompts.reviewFileDiff,
+            prompts.renderReviewFileDiff(ins),
             {}
           )
           if (response === '') {
