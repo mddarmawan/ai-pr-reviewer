@@ -6864,7 +6864,7 @@ For fixes, use \`diff\` code blocks, marking changes with \`+\` or \`-\`. The li
   the system or question intentions behind the changes.
 
 If there are no issues found on a line range, you MUST respond with the 
-text \`LGTM!\` for that line range in the review section. 
+text \`\` for that line range in the review section. 
 
 ## Example
 
@@ -6915,7 +6915,7 @@ There's a syntax error in the add function.
 \`\`\`
 ---
 24-25:
-LGTM!
+
 ---
 
 ## Changes made to \`$filename\` for your review
