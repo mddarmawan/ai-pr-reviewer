@@ -319,7 +319,7 @@ ${
     ins.fileDiff = fileDiff
 
     // render prompt based on inputs so far
-    const summarizePrompt = prompts.renderSummarizeFileDiff(
+    const summarizePrompt = prompts.summarizeFileDiff
       ins,
       options.reviewSimpleChanges
     )
@@ -397,7 +397,7 @@ ${filename}: ${summary}
       }
       // ask chatgpt to summarize the summaries
       const [summarizeResp] = await heavyBot.chat(
-        prompts.renderSummarizeChangesets(inputs),
+        prompts.summarizeinputs),
         {}
       )
       if (summarizeResp === '') {
@@ -410,7 +410,7 @@ ${filename}: ${summary}
 
   // final summary
   const [summarizeFinalResponse] = await heavyBot.chat(
-    prompts.renderSummarize(inputs),
+    prompts.summarizeinputs),
     {}
   )
   if (summarizeFinalResponse === '') {
@@ -420,7 +420,7 @@ ${filename}: ${summary}
   if (options.disableReleaseNotes === false) {
     // final release notes
     const [releaseNotesResponse] = await heavyBot.chat(
-      prompts.renderSummarizeReleaseNotes(inputs),
+      prompts.summarizeReleaseNotesinputs),
       {}
     )
     if (releaseNotesResponse === '') {
@@ -441,7 +441,7 @@ ${filename}: ${summary}
 
   // generate a short summary as well
   const [summarizeShortResponse] = await heavyBot.chat(
-    prompts.renderSummarizeShort(inputs),
+    prompts.summarizeinputs),
     {}
   )
   inputs.shortSummary = summarizeShortResponse
@@ -530,7 +530,7 @@ ${
       ins.filename = filename
 
       // calculate tokens based on inputs so far
-      let tokens = getTokenCount(prompts.renderReviewFileDiff(ins))
+      let tokens = getTokenCount(prompts.reviewFileDiffins))
       // loop to calculate total patch tokens
       let patchesToPack = 0
       for (const [, , patch] of patches) {
@@ -557,7 +557,7 @@ ${
             `unable to pack more patches into this request, packed: ${patchesPacked}, total patches: ${patches.length}, skipping.`
           )
           if (options.debug) {
-            info(`prompt so far: ${prompts.renderReviewFileDiff(ins)}`)
+            info(`prompt so far: ${prompts.reviewFileDiffins)}`)
           }
           break
         }
@@ -616,7 +616,7 @@ ${commentChain}
         // perform review
         try {
           const [response] = await heavyBot.chat(
-            prompts.renderReviewFileDiff(ins),
+            prompts.reviewFileDiffins),
             {}
           )
           if (response === '') {
@@ -835,7 +835,7 @@ const parsePatch = (
     if (line.startsWith('-')) {
       oldHunkLines.push(`${line.substring(1)}`)
     } else if (line.startsWith('+')) {
-      newHunkLines.push(`${newLine}: ${line.substring(1)}`)
+      newHunkLines.push(line.substring(1))
       newLine++
     } else {
       // context line
@@ -844,7 +844,7 @@ const parsePatch = (
         removalOnly ||
         (currentLine > skipStart && currentLine <= lines.length - skipEnd)
       ) {
-        newHunkLines.push(`${newLine}: ${line}`)
+        newHunkLines.push(line)
       } else {
         newHunkLines.push(`${line}`)
       }
