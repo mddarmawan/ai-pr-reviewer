@@ -117,6 +117,12 @@ For fixes, use \`diff\` code blocks, marking changes with \`+\` or \`-\`. The li
 
 ## 🔎 SPECIFIC DETECTION PATTERNS:
 
+**CRITICAL AUTHENTICATION VULNERABILITIES:**
+- Routes that access sensitive data (users, profiles, admin data) without authentication
+- GET endpoints that return user data without proper auth middleware
+- API endpoints that should require authentication but are missing it
+- Routes with comments like "admin only" but no auth middleware
+
 **Security Patterns to Flag:**
 - \`const.*=.*['"](secret|key|password|token)['"]\` - Hardcoded secrets
 - \`bcrypt\.genSalt\([0-9]+\)\` - Check salt rounds (should be 12+)
@@ -127,10 +133,10 @@ For fixes, use \`diff\` code blocks, marking changes with \`+\` or \`-\`. The li
 - \`console\.log\(.*error\` - Error logging
 
 **Authentication & Authorization Patterns:**
-- \`router\.(get|post|put|delete)\(['"][^'"]*['"],\s*(?!.*authenticateToken|.*auth|.*middleware).*async\s*\(req,\s*res\)\` - Missing auth
-- \`router\.(get|post|put|delete)\(['"][^'"]*['"],\s*(?!.*authenticateToken|.*auth|.*middleware).*\(req,\s*res\)\` - Missing auth (non-async)
-- Routes that access sensitive data without authentication middleware
-- API endpoints that should require authentication but don't have it
+- Routes with comments indicating admin-only access but missing authentication
+- GET endpoints that return user data without proper auth middleware
+- API endpoints that should require authentication but are missing it
+- Routes that access sensitive data but don't have authenticateToken, auth, or middleware
 
 **Validation Patterns to Flag:**
 - \`email\.includes\('@')\` - Weak email validation
@@ -144,6 +150,13 @@ For fixes, use \`diff\` code blocks, marking changes with \`+\` or \`-\`. The li
 3. **Sensitive Data Exposure**: Routes that return user data without proper auth
 4. **Input Validation**: Weak or missing validation on user inputs
 5. **Error Information Disclosure**: Stack traces or sensitive info in error responses
+
+**SPECIFIC AUTHENTICATION VULNERABILITIES TO DETECT:**
+- Routes with comments like "admin only" or "admin" but missing authentication middleware
+- GET endpoints that return user data without proper auth (especially /users, /api/users)
+- Routes that access sensitive data but don't have authenticateToken, auth, or middleware
+- API endpoints that should require authentication but are missing it
+- Look for patterns like: router.get("/", async (req, res) => { without auth middleware
 
 - Do NOT provide general feedback, summaries, explanations of changes, or praises 
   for making good additions. 
