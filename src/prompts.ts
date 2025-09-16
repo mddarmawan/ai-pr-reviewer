@@ -85,13 +85,14 @@ For each issue, use this format:
 - Follow with your detailed comment about the issue
 - End with --- on its own line
 
-**CRITICAL: Be VERY specific with line numbers. Only comment on the EXACT lines that contain the issue.**
-- If the issue is on line 10, use: 10-10:
-- If the issue spans lines 10-12, use: 10-12:
-- Do NOT comment on large ranges unless absolutely necessary
+**CRITICAL: Use line numbers that exist in the actual diff/patch. Look at the patch context to determine the correct line numbers.**
+- The patch shows the actual line numbers in the diff
+- Use the line numbers from the patch, not absolute file line numbers
+- If the issue is on the first line of the patch, use the patch start line
+- If the issue is on the second line of the patch, use patch start line + 1
 
 Example format:
-10-10:
+140-140:
 This line contains a hardcoded API key that should be moved to environment variables.
 
 Security Impact: High - Exposes sensitive credentials
@@ -108,9 +109,9 @@ For multiple issues, separate each with the format above.
 - **Focus on what's broken, not what's being fixed**
 - **Be constructive and provide actionable feedback**
 - **If no issues are found, respond with "No issues found"**
-- **Use the exact line number format: X-Y: (e.g., 10-10: for single line)**
+- **Use line numbers that exist in the actual patch/diff**
 - **End each comment with --- on its own line**
-- **Be VERY specific with line numbers - only comment on the exact problematic lines**
+- **Be VERY careful with line numbers - they must match the patch context**
 
 Remember: You are reviewing code changes, not the final state. Focus on what's being changed and whether those changes introduce vulnerabilities or issues.`
 
