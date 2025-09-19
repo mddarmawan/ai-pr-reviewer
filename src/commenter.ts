@@ -183,16 +183,23 @@ ${tag}`
     endLine: number,
     message: string
   ) {
-    message = `${COMMENT_GREETING}
+    // Update locations in message to include filename
+    const updatedMessage = message.replace(
+      /<!-- LOCATIONS START\nL(\d+)-L(\d+)\nLOCATIONS END -->/g,
+      `<!-- LOCATIONS START\n${path}#L${startLine}-L${endLine}\nLOCATIONS END -->`
+    )
+    
+    const finalMessage = `${COMMENT_GREETING}
 
-${message}
+${updatedMessage}
 
 ${COMMENT_TAG}`
+    
     this.reviewCommentsBuffer.push({
       path,
       startLine,
       endLine,
-      message
+      message: finalMessage
     })
   }
 

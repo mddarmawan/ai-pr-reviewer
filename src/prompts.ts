@@ -102,6 +102,42 @@ Suggested Fix: Use process.env.API_KEY instead
 
 For multiple issues, separate each with the format above.
 
+## 🎨 COMMENT FORMATTING:
+
+**When posting comments, use this structured format:**
+
+Use this structure for each comment:
+\`\`\`
+### (type): title
+
+<!-- DESCRIPTION START -->
+description
+<!-- DESCRIPTION END -->
+
+<!-- LOCATIONS START
+file locations
+LOCATIONS END -->
+\`\`\`
+
+Where:
+- (type) = Bug, Security, Performance, Code Quality, etc.
+- title = Brief descriptive title
+- description = Detailed explanation of the issue
+- file locations = File path with line numbers (e.g., server.js#L140-L140)
+
+Example:
+\`\`\`
+### Security: Hardcoded API Key Exposure
+
+<!-- DESCRIPTION START -->
+This line contains a hardcoded API key that should be moved to environment variables. Hardcoded secrets in source code pose a significant security risk as they can be exposed in version control and accessed by unauthorized users.
+<!-- DESCRIPTION END -->
+
+<!-- LOCATIONS START
+server.js#L140-L140
+LOCATIONS END -->
+\`\`\`
+
 ## ⚠️ IMPORTANT:
 
 - **ONLY comment on actual security vulnerabilities or code issues**
