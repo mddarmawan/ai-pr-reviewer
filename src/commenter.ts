@@ -238,8 +238,14 @@ ${statusMsg}
 `
 
     if (this.reviewCommentsBuffer.length === 0) {
-      // Submit empty review with statusMsg
+      // Submit empty review with statusMsg and positive feedback
       info(`Submitting empty review for PR #${pullNumber}`)
+      const noIssuesBody = `${COMMENT_GREETING}
+
+### ✅ CodeRabbit reviewed your changes and found no issues!
+
+${statusMsg}
+`
       try {
         await octokit.pulls.createReview({
           owner: repo.owner,
@@ -249,7 +255,7 @@ ${statusMsg}
           // eslint-disable-next-line camelcase
           commit_id: commitId,
           event: 'COMMENT',
-          body
+          body: noIssuesBody
         })
       } catch (e) {
         warning(`Failed to submit empty review: ${e}`)
