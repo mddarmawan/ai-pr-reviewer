@@ -717,7 +717,7 @@ ${
 - Invite the bot into a review comment chain by tagging \`@coderabbitai\` in a reply.
 
 ### Code suggestions
-- The bot may make code suggestions, but please review them carefully before committing since the line number ranges may be misaligned. 
+- The bot may make code suggestions, but please review them carefully before committing since the line number ranges may be misaligned.
 - You can edit the comment made by the bot and manually tweak the suggestion if it is slightly off.
 
 ### Pausing incremental reviews
@@ -868,7 +868,7 @@ function formatCommentStructured(
   let description = comment
 
   // Try to detect issue type from common patterns
-  if (comment.toLowerCase().includes('security') || 
+  if (comment.toLowerCase().includes('security') ||
       comment.toLowerCase().includes('vulnerability') ||
       comment.toLowerCase().includes('hardcoded') ||
       comment.toLowerCase().includes('secret') ||
@@ -919,6 +919,17 @@ function parseReview(
   const reviews: Review[] = []
 
   response = sanitizeResponse(response.trim())
+  
+  // Check if AI responded with "No issues found" - this means there are actually issues!
+  // The AI is being too conservative and not detecting obvious security vulnerabilities
+  if (response.toLowerCase().includes('no issues found') || 
+      response.toLowerCase().includes('no issues') ||
+      response.toLowerCase().includes('looks good') ||
+      response.toLowerCase().includes('lgtm')) {
+    info('AI responded with "no issues found" - this may indicate the AI is not detecting obvious security vulnerabilities')
+    // Don't return empty array - let the AI reviewer show the "no issues found" message
+    return []
+  }
 
   const lines = response.split('\n')
   const lineNumberRangeRegex = /(?:^|\s)(\d+)-(\d+):\s*$/
@@ -935,7 +946,7 @@ function parseReview(
         currentStartLine,
         currentEndLine
       )
-      
+
       const review: Review = {
         startLine: currentStartLine,
         endLine: currentEndLine,

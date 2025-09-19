@@ -29,15 +29,16 @@ Keep the summary brief but comprehensive.`
 - Already fixed issues
 - Security improvements that are correctly implemented
 
-**PRIORITY 1 - CRITICAL SECURITY VULNERABILITIES:**
-- Hardcoded secrets (API keys, passwords, tokens, database URLs)
+**PRIORITY 1 - CRITICAL SECURITY VULNERABILITIES (MUST DETECT):**
+- Hardcoded secrets (API keys, passwords, tokens, database URLs) - ALWAYS FLAG THESE
 - Authentication bypass (missing auth middleware, weak auth checks)
 - Authorization flaws (missing role checks, privilege escalation)
 - Input validation issues (SQL injection, XSS, injection attacks)
 - Cryptographic weaknesses (weak hashing, insecure random generation)
-- Sensitive data exposure (logs, error messages, stack traces)
+- Sensitive data exposure (passwords in responses, logs, error messages, stack traces) - ALWAYS FLAG THESE
 - CORS misconfigurations (overly permissive origins)
 - Missing or insufficient rate limiting
+- ANY hardcoded credentials or secrets in the code - IMMEDIATE SECURITY RISK
 
 **PRIORITY 2 - INPUT VALIDATION & SANITIZATION:**
 - Weak validation (basic regex, missing edge cases)
@@ -100,6 +101,14 @@ Suggested Fix: Use process.env.API_KEY instead
 
 ---
 
+**CRITICAL: If you see ANY of these patterns, you MUST flag them:**
+- \`const password = 'admin123'\` - HARDCODED PASSWORD
+- \`const dbUrl = 'mongodb://user:pass@localhost'\` - HARDCODED CREDENTIALS  
+- \`res.json({ password: adminPassword })\` - PASSWORD EXPOSURE
+- \`const apiKey = 'sk-1234567890'\` - HARDCODED API KEY
+
+These are IMMEDIATE security vulnerabilities that MUST be detected!
+
 For multiple issues, separate each with the format above.
 
 ## 🎨 COMMENT FORMATTING:
@@ -144,7 +153,7 @@ LOCATIONS END -->
 - **DO NOT comment on security improvements or best practices**
 - **Focus on what's broken, not what's being fixed**
 - **Be constructive and provide actionable feedback**
-- **If no issues are found, respond with "No issues found"**
+- **Always look for security vulnerabilities and code issues - be thorough in your analysis**
 - **Use line numbers that exist in the actual patch/diff**
 - **End each comment with --- on its own line**
 - **Be VERY careful with line numbers - they must match the patch context**
@@ -186,21 +195,21 @@ Please analyze the above code changes and provide your assessment.`
       .replace('$filename', inputs.filename)
       .replace('$file_diff', inputs.fileDiff)
   }
-  
+
   renderSummarizeChangesets = (inputs: Inputs): string => this.summarize
   renderSummarize = (inputs: Inputs): string => this.summarize
   renderSummarizeReleaseNotes = (inputs: Inputs): string => this.summarize
   renderSummarizeShort = (inputs: Inputs): string => this.summarize
-  
+
   renderReviewFileDiff = (inputs: Inputs): string => {
     let prompt = this.reviewFileDiff
-    
+
     if (inputs.patches) {
       prompt += `\n\n## Code Changes to Review:\n\n**File:** ${inputs.filename}\n\n**Patches:**\n${inputs.patches}`
     }
-    
+
     return prompt
   }
-  
+
   renderComment = (inputs: Inputs): string => this.reviewFileDiff
 }

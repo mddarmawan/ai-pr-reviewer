@@ -188,13 +188,13 @@ ${tag}`
       /<!-- LOCATIONS START\nL(\d+)-L(\d+)\nLOCATIONS END -->/g,
       `<!-- LOCATIONS START\n${path}#L${startLine}-L${endLine}\nLOCATIONS END -->`
     )
-    
+
     const finalMessage = `${COMMENT_GREETING}
 
 ${updatedMessage}
 
 ${COMMENT_TAG}`
-    
+
     this.reviewCommentsBuffer.push({
       path,
       startLine,
