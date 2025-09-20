@@ -636,29 +636,35 @@ ${commentChain}
           }
           // parse review
           const reviews = parseReview(response, patches, options.debug)
-          
-          // Refine line targeting for each review using AI
+
+          // Refine line targeting for each review using AI (can be disabled)
+          const enableLineRefinement = process.env.ENABLE_LINE_REFINEMENT !== 'false'
           const refinedReviews = []
-          for (const review of reviews) {
-            // Find the patch that contains this review
-            const matchingPatch = patches.find(([start, end]) => 
-              review.startLine >= start && review.endLine <= end
-            )
-            
-            if (matchingPatch) {
-              const [_, __, patchContent] = matchingPatch
-              const refinedReview = await refineLineTargeting(
-                heavyBot, 
-                review, 
-                patchContent, 
-                options.debug
-              )
-              refinedReviews.push(refinedReview)
-            } else {
-              refinedReviews.push(review)
-            }
-          }
           
+          if (enableLineRefinement) {
+            for (const review of reviews) {
+              // Find the patch that contains this review
+              const matchingPatch = patches.find(([start, end]) => 
+                review.startLine >= start && review.endLine <= end
+              )
+              
+              if (matchingPatch) {
+                const [_, __, patchContent] = matchingPatch
+                const refinedReview = await refineLineTargeting(
+                  lightBot, 
+                  review, 
+                  patchContent, 
+                  options.debug
+                )
+                refinedReviews.push(refinedReview)
+              } else {
+                refinedReviews.push(review)
+              }
+            }
+          } else {
+            refinedReviews.push(...reviews)
+          }
+
           for (const review of refinedReviews) {
             // check for LGTM
             if (
@@ -971,13 +977,13 @@ ${description.trim()}
 <!-- LOCATIONS START
 L${startLine}-L${endLine}
 LOCATIONS END -->`
-    
+
     reviews.push({
       startLine,
       endLine,
       comment
     })
-    
+
     if (debug) {
       info(`Parsed structured review: ${title} at lines ${startLine}-${endLine} (score: ${bestScore})`)
     }
@@ -993,62 +999,45 @@ async function refineLineTargeting(
   debug = false
 ): Promise<Review> {
   try {
-    const prompt = `You are a code review expert. I need you to identify the EXACT line numbers within a code patch that contain a specific security vulnerability.
+    const prompt = `Find the exact line number with the security issue in this code:
 
-REVIEW COMMENT:
-${review.comment}
-
-CODE PATCH:
-\`\`\`
 ${patchContent}
-\`\`\`
 
-TASK: Find the exact line numbers (within the patch) that contain the security issue mentioned in the review comment.
+Issue: ${review.comment.split('###')[1]?.split('\n')[0] || 'security vulnerability'}
 
-RULES:
-1. Be extremely precise - only include lines that directly contain the vulnerability
-2. If the issue spans multiple lines, include only the necessary lines for context
-3. For SQL injection: target the line with the vulnerable query
-4. For hardcoded secrets: target the line with the hardcoded value
-5. For XSS: target the line with unsanitized output
-6. Return ONLY the line numbers in format: START_LINE,END_LINE
-
-EXAMPLE:
-If the patch shows:
-\`\`\`
-148: const adminPassword = 'admin123';
-149: const dbConnection = 'mongodb://...';
-150: res.json({ password: adminPassword });
-\`\`\`
-
-And the issue is "hardcoded password", return: 148,148
-
-RESPONSE FORMAT: Just return the line numbers as: START_LINE,END_LINE`
+Return only: START_LINE,END_LINE`
 
     const [response] = await bot.chat(prompt, {})
-    
+
     if (response && response.includes(',')) {
       const [startStr, endStr] = response.trim().split(',')
       const preciseStart = parseInt(startStr.trim(), 10)
       const preciseEnd = parseInt(endStr.trim(), 10)
-      
+
       if (!isNaN(preciseStart) && !isNaN(preciseEnd) && preciseStart <= preciseEnd) {
-        if (debug) {
-          info(`Refined line targeting: ${review.startLine}-${review.endLine} → ${preciseStart}-${preciseEnd}`)
-        }
-        
-        return {
-          ...review,
-          startLine: preciseStart,
-          endLine: preciseEnd
+        // Validate that the refined lines are within the original patch range
+        if (preciseStart >= review.startLine && preciseEnd <= review.endLine) {
+          if (debug) {
+            info(`Refined line targeting: ${review.startLine}-${review.endLine} → ${preciseStart}-${preciseEnd}`)
+          }
+          
+          return {
+            ...review,
+            startLine: preciseStart,
+            endLine: preciseEnd
+          }
+        } else {
+          if (debug) {
+            info(`Refined lines ${preciseStart}-${preciseEnd} outside original range ${review.startLine}-${review.endLine}, using original`)
+          }
         }
       }
     }
-    
+
     if (debug) {
       info(`Line refinement failed, using original range: ${review.startLine}-${review.endLine}`)
     }
-    
+
     return review
   } catch (error) {
     if (debug) {
