@@ -141,11 +141,14 @@ export const codeReview = async (
   // skip files if they are filtered out
   const filterSelectedFiles = []
   const filterIgnoredFiles = []
+  info(`Processing ${files.length} files from diff`)
   for (const file of files) {
+    info(`Checking file: ${file.filename}`)
     if (!options.checkPath(file.filename)) {
       info(`skip for excluded path: ${file.filename}`)
       filterIgnoredFiles.push(file)
     } else {
+      info(`selected file: ${file.filename}`)
       filterSelectedFiles.push(file)
     }
   }
@@ -208,13 +211,19 @@ export const codeReview = async (
         }
 
         const patches: Array<[number, number, string]> = []
-        for (const patch of splitPatch(file.patch)) {
+        info(`Processing patches for ${file.filename}`)
+        const splitPatches = splitPatch(file.patch)
+        info(`Split into ${splitPatches.length} patches for ${file.filename}`)
+        
+        for (const patch of splitPatches) {
           const patchLines = patchStartEndLine(patch)
           if (patchLines == null) {
+            info(`Skipping patch for ${file.filename} - no valid lines`)
             continue
           }
           const hunks = parsePatch(patch)
           if (hunks == null) {
+            info(`Skipping patch for ${file.filename} - no valid hunks`)
             continue
           }
           const hunksStr = `
@@ -233,6 +242,7 @@ ${hunks.oldHunk}
             patchLines.newHunk.endLine,
             hunksStr
           ])
+          info(`Added patch for ${file.filename}: lines ${patchLines.newHunk.startLine}-${patchLines.newHunk.endLine}`)
         }
         if (patches.length > 0) {
           info(`File ${file.filename}: Generated ${patches.length} patches`)
