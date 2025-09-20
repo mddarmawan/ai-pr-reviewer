@@ -857,6 +857,87 @@ interface Review {
   comment: string
 }
 
+function parseStructuredReview(
+  response: string,
+  patches: Array<[number, number, string]>,
+  debug = false
+): Review[] {
+  const reviews: Review[] = []
+  
+  // Split response by ### headers to find individual issues
+  const issueBlocks = response.split(/^### /m).filter(block => block.trim())
+  
+  for (const block of issueBlocks) {
+    const lines = block.split('\n')
+    
+    // Extract title (first line)
+    const title = lines[0].trim()
+    if (!title) continue
+    
+    // Find description between <!-- DESCRIPTION START --> and <!-- DESCRIPTION END -->
+    let description = ''
+    let inDescription = false
+    let locations = ''
+    let inLocations = false
+    
+    for (const line of lines) {
+      if (line.includes('<!-- DESCRIPTION START -->')) {
+        inDescription = true
+        continue
+      }
+      if (line.includes('<!-- DESCRIPTION END -->')) {
+        inDescription = false
+        continue
+      }
+      if (line.includes('<!-- LOCATIONS START')) {
+        inLocations = true
+        continue
+      }
+      if (line.includes('LOCATIONS END -->')) {
+        inLocations = false
+        continue
+      }
+      
+      if (inDescription) {
+        description += line + '\n'
+      }
+      if (inLocations) {
+        locations += line + '\n'
+      }
+    }
+    
+    // Extract line numbers from locations
+    const locationMatch = locations.match(/(\w+\.\w+)#L(\d+)-L(\d+)/)
+    if (locationMatch) {
+      const startLine = parseInt(locationMatch[2], 10)
+      const endLine = parseInt(locationMatch[3], 10)
+      
+      // Create the structured comment
+      const comment = `### ${title}
+
+<!-- DESCRIPTION START -->
+${description.trim()}
+<!-- DESCRIPTION END -->
+
+<!-- LOCATIONS START
+${locationMatch[1]}#L${startLine}-L${endLine}
+LOCATIONS END -->`
+      
+      reviews.push({
+        startLine,
+        endLine,
+        comment
+      })
+      
+      if (debug) {
+        info(`Parsed structured review: ${title} at lines ${startLine}-${endLine}`)
+      }
+    }
+  }
+  
+  return reviews
+}
+
 function parseReview(
   response: string,
   patches: Array<[number, number, string]>,
@@ -865,10 +946,10 @@ function parseReview(
   const reviews: Review[] = []
 
   response = sanitizeResponse(response.trim())
-
+  
   // Check if AI responded with "No issues found" - this means there are actually issues!
   // The AI is being too conservative and not detecting obvious security vulnerabilities
-  if (response.toLowerCase().includes('no issues found') ||
+  if (response.toLowerCase().includes('no issues found') || 
       response.toLowerCase().includes('no issues') ||
       response.toLowerCase().includes('looks good') ||
       response.toLowerCase().includes('lgtm')) {
@@ -877,6 +958,12 @@ function parseReview(
     return []
   }
 
+  // Check if response is in the new structured format
+  if (response.includes('### ') && response.includes('<!-- DESCRIPTION START -->')) {
+    return parseStructuredReview(response, patches, debug)
+  }
+
+  // Fallback to old format parsing
   const lines = response.split('\n')
   const lineNumberRangeRegex = /(?:^|\s)(\d+)-(\d+):\s*$/
   const commentSeparator = '---'

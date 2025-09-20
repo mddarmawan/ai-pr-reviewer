@@ -190,7 +190,7 @@ ${tag}`
 ${message}
 
 ${COMMENT_TAG}`
-    
+
     this.reviewCommentsBuffer.push({
       path,
       startLine,
