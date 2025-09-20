@@ -999,13 +999,26 @@ async function refineLineTargeting(
   debug = false
 ): Promise<Review> {
   try {
-    const prompt = `Find the exact line number with the security issue in this code:
+    // Extract the issue type from the comment
+    const issueMatch = review.comment.match(/###\s*(\w+):\s*(.+)/)
+    const issueType = issueMatch ? issueMatch[1] : 'Security'
+    const issueTitle = issueMatch ? issueMatch[2] : 'vulnerability'
+    
+    const prompt = `Analyze this code patch and find the EXACT line numbers containing the security issue.
 
+CODE PATCH:
 ${patchContent}
 
-Issue: ${review.comment.split('###')[1]?.split('\n')[0] || 'security vulnerability'}
+ISSUE: ${issueType}: ${issueTitle}
 
-Return only: START_LINE,END_LINE`
+RULES:
+- For hardcoded passwords: find the line with the hardcoded value
+- For SQL injection: find the line with the vulnerable query
+- For XSS: find the line with unsanitized output
+- For exposed secrets: find the line exposing the secret
+- Be precise: only include lines that directly contain the vulnerability
+
+Return format: START_LINE,END_LINE`
 
     const [response] = await bot.chat(prompt, {})
 
@@ -1020,7 +1033,7 @@ Return only: START_LINE,END_LINE`
           if (debug) {
             info(`Refined line targeting: ${review.startLine}-${review.endLine} → ${preciseStart}-${preciseEnd}`)
           }
-
+          
           return {
             ...review,
             startLine: preciseStart,
@@ -1031,6 +1044,14 @@ Return only: START_LINE,END_LINE`
             info(`Refined lines ${preciseStart}-${preciseEnd} outside original range ${review.startLine}-${review.endLine}, using original`)
           }
         }
+      } else {
+        if (debug) {
+          info(`Invalid line numbers from AI: ${response}, using original range`)
+        }
+      }
+    } else {
+      if (debug) {
+        info(`AI response format invalid: ${response}, using original range`)
       }
     }
 
