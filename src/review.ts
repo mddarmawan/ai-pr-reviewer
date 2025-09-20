@@ -1003,7 +1003,7 @@ async function refineLineTargeting(
     const issueMatch = review.comment.match(/###\s*(\w+):\s*(.+)/)
     const issueType = issueMatch ? issueMatch[1] : 'Security'
     const issueTitle = issueMatch ? issueMatch[2] : 'vulnerability'
-    
+
     const prompt = `Analyze this code patch and find the EXACT line numbers containing the security issue.
 
 CODE PATCH:
@@ -1033,7 +1033,7 @@ Return format: START_LINE,END_LINE`
           if (debug) {
             info(`Refined line targeting: ${review.startLine}-${review.endLine} → ${preciseStart}-${preciseEnd}`)
           }
-          
+
           return {
             ...review,
             startLine: preciseStart,
