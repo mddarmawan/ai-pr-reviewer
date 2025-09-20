@@ -103,7 +103,7 @@ Suggested Fix: Use process.env.API_KEY instead
 
 **CRITICAL: If you see ANY of these patterns, you MUST flag them:**
 - \`const password = 'admin123'\` - HARDCODED PASSWORD
-- \`const dbUrl = 'mongodb://user:pass@localhost'\` - HARDCODED CREDENTIALS  
+- \`const dbUrl = 'mongodb://user:pass@localhost'\` - HARDCODED CREDENTIALS
 - \`res.json({ password: adminPassword })\` - PASSWORD EXPOSURE
 - \`const apiKey = 'sk-1234567890'\` - HARDCODED API KEY
 
@@ -113,9 +113,9 @@ For multiple issues, separate each with the format above.
 
 ## 🎨 COMMENT FORMATTING:
 
-**When posting comments, use this structured format:**
+**IMPORTANT: Generate comments in this EXACT format for each issue:**
 
-Use this structure for each comment:
+For each issue found, use this EXACT structure:
 \`\`\`
 ### (type): title
 
@@ -124,15 +124,15 @@ description
 <!-- DESCRIPTION END -->
 
 <!-- LOCATIONS START
-file locations
+filename#LstartLine-LendLine
 LOCATIONS END -->
 \`\`\`
 
 Where:
-- (type) = Bug, Security, Performance, Code Quality, etc.
-- title = Brief descriptive title
+- (type) = Security, Performance, Error Handling, Code Quality, etc.
+- title = Brief descriptive title (no duplicate "###" or type)
 - description = Detailed explanation of the issue
-- file locations = File path with line numbers (e.g., server.js#L140-L140)
+- filename#LstartLine-LendLine = Exact file location with line numbers
 
 Example:
 \`\`\`
@@ -146,6 +146,8 @@ This line contains a hardcoded API key that should be moved to environment varia
 server.js#L140-L140
 LOCATIONS END -->
 \`\`\`
+
+**CRITICAL: Do NOT duplicate headers, do NOT duplicate HTML comments, and use the EXACT line numbers from the patch.**
 
 ## ⚠️ IMPORTANT:
 

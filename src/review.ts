@@ -857,60 +857,6 @@ interface Review {
   comment: string
 }
 
-function formatCommentStructured(
-  comment: string,
-  startLine: number,
-  endLine: number
-): string {
-  // Extract issue type and title from comment
-  let issueType = 'Bug'
-  let title = 'Code Issue'
-  let description = comment
-
-  // Try to detect issue type from common patterns
-  if (comment.toLowerCase().includes('security') ||
-      comment.toLowerCase().includes('vulnerability') ||
-      comment.toLowerCase().includes('hardcoded') ||
-      comment.toLowerCase().includes('secret') ||
-      comment.toLowerCase().includes('api key') ||
-      comment.toLowerCase().includes('password')) {
-    issueType = 'Security'
-  } else if (comment.toLowerCase().includes('performance') ||
-             comment.toLowerCase().includes('slow') ||
-             comment.toLowerCase().includes('timeout') ||
-             comment.toLowerCase().includes('memory')) {
-    issueType = 'Performance'
-  } else if (comment.toLowerCase().includes('error') ||
-             comment.toLowerCase().includes('exception') ||
-             comment.toLowerCase().includes('handling')) {
-    issueType = 'Error Handling'
-  }
-
-  // Extract title from first line or create from issue type
-  const lines = comment.split('\n')
-  if (lines.length > 0) {
-    const firstLine = lines[0].trim()
-    if (firstLine.length > 0 && firstLine.length < 100) {
-      title = firstLine
-      description = lines.slice(1).join('\n').trim()
-    }
-  }
-
-  // Clean up title
-  title = title.replace(/^[-*]\s*/, '').replace(/[.!?]+$/, '')
-
-  // Format as structured comment style
-  return `### ${issueType}: ${title}
-
-<!-- DESCRIPTION START -->
-${description}
-<!-- DESCRIPTION END -->
-
-<!-- LOCATIONS START
-L${startLine}-L${endLine}
-LOCATIONS END -->`
-}
-
 function parseReview(
   response: string,
   patches: Array<[number, number, string]>,
@@ -919,10 +865,10 @@ function parseReview(
   const reviews: Review[] = []
 
   response = sanitizeResponse(response.trim())
-  
+
   // Check if AI responded with "No issues found" - this means there are actually issues!
   // The AI is being too conservative and not detecting obvious security vulnerabilities
-  if (response.toLowerCase().includes('no issues found') || 
+  if (response.toLowerCase().includes('no issues found') ||
       response.toLowerCase().includes('no issues') ||
       response.toLowerCase().includes('looks good') ||
       response.toLowerCase().includes('lgtm')) {
@@ -940,17 +886,11 @@ function parseReview(
   let currentComment = ''
   function storeReview(): void {
     if (currentStartLine !== null && currentEndLine !== null) {
-      // Format comment in structured style
-      const formattedComment = formatCommentStructured(
-        currentComment.trim(),
-        currentStartLine,
-        currentEndLine
-      )
-
+      // Use the comment as-is from the AI (it should already be in structured format)
       const review: Review = {
         startLine: currentStartLine,
         endLine: currentEndLine,
-        comment: formattedComment
+        comment: currentComment.trim()
       }
 
       let withinPatch = false
