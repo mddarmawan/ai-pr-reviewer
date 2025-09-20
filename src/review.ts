@@ -951,13 +951,22 @@ function parseStructuredReview(
       const issueText = (title + ' ' + description).toLowerCase()
       const patchText = patchContent.toLowerCase()
 
-      // Score based on keyword matches
-      if (issueText.includes('password') && patchText.includes('password')) score += 10
-      if (issueText.includes('secret') && patchText.includes('secret')) score += 10
-      if (issueText.includes('hardcoded') && patchText.includes('admin123')) score += 10
-      if (issueText.includes('sql') && patchText.includes('select')) score += 10
-      if (issueText.includes('injection') && patchText.includes('${')) score += 10
-      if (issueText.includes('exposure') && patchText.includes('res.json')) score += 10
+      // More precise scoring based on specific vulnerability patterns
+      if (issueText.includes('hardcoded password') && patchText.includes('admin123')) score += 20
+      if (issueText.includes('hardcoded password') && patchText.includes('password123')) score += 20
+      if (issueText.includes('database credentials') && patchText.includes('mongodb://')) score += 20
+      if (issueText.includes('sql injection') && patchText.includes('${userId}')) score += 20
+      if (issueText.includes('sql injection') && patchText.includes('SELECT * FROM')) score += 20
+      if (issueText.includes('exposed secret') && patchText.includes('secretKey')) score += 20
+      if (issueText.includes('jwt secret') && patchText.includes('jwt-secret')) score += 20
+      if (issueText.includes('timeout') && patchText.includes('setTimeout')) score += 15
+      if (issueText.includes('hardcoded') && patchText.includes('5000')) score += 15
+      
+      // Lower priority matches
+      if (issueText.includes('password') && patchText.includes('password')) score += 5
+      if (issueText.includes('secret') && patchText.includes('secret')) score += 5
+      if (issueText.includes('sql') && patchText.includes('select')) score += 5
+      if (issueText.includes('injection') && patchText.includes('${')) score += 5
 
       if (score > bestScore) {
         bestScore = score
@@ -986,6 +995,8 @@ LOCATIONS END -->`
 
     if (debug) {
       info(`Parsed structured review: ${title} at lines ${startLine}-${endLine} (score: ${bestScore})`)
+      info(`Issue text: ${(title + ' ' + description).toLowerCase()}`)
+      info(`Best patch content: ${bestPatch[2].substring(0, 100)}...`)
     }
   }
 
