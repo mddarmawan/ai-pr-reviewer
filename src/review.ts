@@ -235,6 +235,7 @@ ${hunks.oldHunk}
           ])
         }
         if (patches.length > 0) {
+          info(`File ${file.filename}: Generated ${patches.length} patches`)
           return [file.filename, fileContent, fileDiff, patches] as [
             string,
             string,
@@ -242,6 +243,7 @@ ${hunks.oldHunk}
             Array<[number, number, string]>
           ]
         } else {
+          info(`File ${file.filename}: No patches generated, skipping file`)
           return null
         }
       })
@@ -252,6 +254,11 @@ ${hunks.oldHunk}
   const filesAndChanges = filteredFiles.filter(file => file !== null) as Array<
     [string, string, string, Array<[number, number, string]>]
   >
+
+  info(`Total files processed: ${filteredFiles.length}, Files with patches: ${filesAndChanges.length}`)
+  for (const [filename, , , patches] of filesAndChanges) {
+    info(`File ${filename}: ${patches.length} patches`)
+  }
 
   if (filesAndChanges.length === 0) {
     error('Skipped: no files to review')
@@ -863,23 +870,23 @@ function parseStructuredReview(
   debug = false
 ): Review[] {
   const reviews: Review[] = []
-  
+
   // Split response by ### headers to find individual issues
   const issueBlocks = response.split(/^### /m).filter(block => block.trim())
-  
+
   for (const block of issueBlocks) {
     const lines = block.split('\n')
-    
+
     // Extract title (first line)
     const title = lines[0].trim()
     if (!title) continue
-    
+
     // Find description between <!-- DESCRIPTION START --> and <!-- DESCRIPTION END -->
     let description = ''
     let inDescription = false
     let locations = ''
     let inLocations = false
-    
+
     for (const line of lines) {
       if (line.includes('<!-- DESCRIPTION START -->')) {
         inDescription = true
@@ -897,7 +904,7 @@ function parseStructuredReview(
         inLocations = false
         continue
       }
-      
+
       if (inDescription) {
         description += line + '\n'
       }
@@ -905,13 +912,13 @@ function parseStructuredReview(
         locations += line + '\n'
       }
     }
-    
+
     // Extract line numbers from locations
     const locationMatch = locations.match(/(\w+\.\w+)#L(\d+)-L(\d+)/)
     if (locationMatch) {
       const startLine = parseInt(locationMatch[2], 10)
       const endLine = parseInt(locationMatch[3], 10)
-      
+
       // Create the structured comment
       const comment = `### ${title}
 
@@ -922,19 +929,19 @@ ${description.trim()}
 <!-- LOCATIONS START
 ${locationMatch[1]}#L${startLine}-L${endLine}
 LOCATIONS END -->`
-      
+
       reviews.push({
         startLine,
         endLine,
         comment
       })
-      
+
       if (debug) {
         info(`Parsed structured review: ${title} at lines ${startLine}-${endLine}`)
       }
     }
   }
-  
+
   return reviews
 }
 
@@ -946,10 +953,10 @@ function parseReview(
   const reviews: Review[] = []
 
   response = sanitizeResponse(response.trim())
-  
+
   // Check if AI responded with "No issues found" - this means there are actually issues!
   // The AI is being too conservative and not detecting obvious security vulnerabilities
-  if (response.toLowerCase().includes('no issues found') || 
+  if (response.toLowerCase().includes('no issues found') ||
       response.toLowerCase().includes('no issues') ||
       response.toLowerCase().includes('looks good') ||
       response.toLowerCase().includes('lgtm')) {
