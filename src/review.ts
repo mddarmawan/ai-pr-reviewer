@@ -406,7 +406,7 @@ ${filename}: ${summary}
 `
       }
       // ask chatgpt to summarize the summaries
-      const [summarizeResp] = await heavyBot.chat(
+      const [summarizeResp] = await lightBot.chat(
         prompts.summarize,
         {}
       )
@@ -419,7 +419,7 @@ ${filename}: ${summary}
   }
 
   // final summary
-  const [summarizeFinalResponse] = await heavyBot.chat(
+  const [summarizeFinalResponse] = await lightBot.chat(
     prompts.summarize,
     {}
   )
@@ -429,7 +429,7 @@ ${filename}: ${summary}
 
   if (options.disableReleaseNotes === false) {
     // final release notes
-    const [releaseNotesResponse] = await heavyBot.chat(
+    const [releaseNotesResponse] = await lightBot.chat(
       prompts.summarizeReleaseNotes,
       {}
     )
@@ -450,7 +450,7 @@ ${filename}: ${summary}
   }
 
   // generate a short summary as well
-  const [summarizeShortResponse] = await heavyBot.chat(
+  const [summarizeShortResponse] = await lightBot.chat(
     prompts.summarize,
     {}
   )
@@ -625,7 +625,7 @@ ${commentChain}
       if (patchesPacked > 0) {
         // perform review
         try {
-          const [response] = await heavyBot.chat(
+          const [response] = await lightBot.chat(
             prompts.renderReviewFileDiff(ins),
             {}
           )
@@ -640,20 +640,20 @@ ${commentChain}
           // Refine line targeting for each review using AI (can be disabled)
           const enableLineRefinement = process.env.ENABLE_LINE_REFINEMENT !== 'false'
           const refinedReviews = []
-          
+
           if (enableLineRefinement) {
             for (const review of reviews) {
               // Find the patch that contains this review
-              const matchingPatch = patches.find(([start, end]) => 
+              const matchingPatch = patches.find(([start, end]) =>
                 review.startLine >= start && review.endLine <= end
               )
-              
+
               if (matchingPatch) {
                 const [_, __, patchContent] = matchingPatch
                 const refinedReview = await refineLineTargeting(
-                  lightBot, 
-                  review, 
-                  patchContent, 
+                  lightBot,
+                  review,
+                  patchContent,
                   options.debug
                 )
                 refinedReviews.push(refinedReview)
@@ -1020,7 +1020,7 @@ Return only: START_LINE,END_LINE`
           if (debug) {
             info(`Refined line targeting: ${review.startLine}-${review.endLine} → ${preciseStart}-${preciseEnd}`)
           }
-          
+
           return {
             ...review,
             startLine: preciseStart,
