@@ -214,7 +214,7 @@ export const codeReview = async (
         info(`Processing patches for ${file.filename}`)
         const splitPatches = splitPatch(file.patch)
         info(`Split into ${splitPatches.length} patches for ${file.filename}`)
-        
+
         for (const patch of splitPatches) {
           const patchLines = patchStartEndLine(patch)
           if (patchLines == null) {
@@ -880,23 +880,23 @@ function parseStructuredReview(
   debug = false
 ): Review[] {
   const reviews: Review[] = []
-
+  
   // Split response by ### headers to find individual issues
   const issueBlocks = response.split(/^### /m).filter(block => block.trim())
-
-  for (const block of issueBlocks) {
+  
+  for (let i = 0; i < issueBlocks.length && i < patches.length; i++) {
+    const block = issueBlocks[i]
+    const [startLine, endLine] = patches[i]
     const lines = block.split('\n')
-
+    
     // Extract title (first line)
     const title = lines[0].trim()
     if (!title) continue
-
+    
     // Find description between <!-- DESCRIPTION START --> and <!-- DESCRIPTION END -->
     let description = ''
     let inDescription = false
-    let locations = ''
-    let inLocations = false
-
+    
     for (const line of lines) {
       if (line.includes('<!-- DESCRIPTION START -->')) {
         inDescription = true
@@ -906,52 +906,34 @@ function parseStructuredReview(
         inDescription = false
         continue
       }
-      if (line.includes('<!-- LOCATIONS START')) {
-        inLocations = true
-        continue
-      }
-      if (line.includes('LOCATIONS END -->')) {
-        inLocations = false
-        continue
-      }
-
+      
       if (inDescription) {
         description += line + '\n'
       }
-      if (inLocations) {
-        locations += line + '\n'
-      }
     }
-
-    // Extract line numbers from locations
-    const locationMatch = locations.match(/(\w+\.\w+)#L(\d+)-L(\d+)/)
-    if (locationMatch) {
-      const startLine = parseInt(locationMatch[2], 10)
-      const endLine = parseInt(locationMatch[3], 10)
-
-      // Create the structured comment
-      const comment = `### ${title}
+    
+    // Use the actual patch line numbers instead of extracting from AI response
+    const comment = `### ${title}
 
 <!-- DESCRIPTION START -->
 ${description.trim()}
 <!-- DESCRIPTION END -->
 
 <!-- LOCATIONS START
-${locationMatch[1]}#L${startLine}-L${endLine}
+L${startLine}-L${endLine}
 LOCATIONS END -->`
-
-      reviews.push({
-        startLine,
-        endLine,
-        comment
-      })
-
-      if (debug) {
-        info(`Parsed structured review: ${title} at lines ${startLine}-${endLine}`)
-      }
+    
+    reviews.push({
+      startLine,
+      endLine,
+      comment
+    })
+    
+    if (debug) {
+      info(`Parsed structured review: ${title} at lines ${startLine}-${endLine}`)
     }
   }
-
+  
   return reviews
 }
 

@@ -183,14 +183,18 @@ ${tag}`
     endLine: number,
     message: string
   ) {
-    // The AI should already generate the structured format with correct filename
-    // Just add the comment greeting and tag
+    // Update locations in message to include filename
+    const updatedMessage = message.replace(
+      /<!-- LOCATIONS START\nL(\d+)-L(\d+)\nLOCATIONS END -->/g,
+      `<!-- LOCATIONS START\n${path}#L${startLine}-L${endLine}\nLOCATIONS END -->`
+    )
+    
     const finalMessage = `${COMMENT_GREETING}
 
-${message}
+${updatedMessage}
 
 ${COMMENT_TAG}`
-
+    
     this.reviewCommentsBuffer.push({
       path,
       startLine,
