@@ -103,7 +103,7 @@ Suggested Fix: Use process.env.API_KEY instead
 
 **CRITICAL: If you see ANY of these patterns, you MUST flag them:**
 - \`const password = 'admin123'\` - HARDCODED PASSWORD
-- \`const dbUrl = 'mongodb://user:pass@localhost'\` - HARDCODED CREDENTIALS  
+- \`const dbUrl = 'mongodb://user:pass@localhost'\` - HARDCODED CREDENTIALS
 - \`res.json({ password: adminPassword })\` - PASSWORD EXPOSURE
 - \`const apiKey = 'sk-1234567890'\` - HARDCODED API KEY
 - \`SELECT * FROM users WHERE id = \${userId}\` - SQL INJECTION VULNERABILITY

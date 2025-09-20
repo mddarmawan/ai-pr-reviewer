@@ -636,7 +636,30 @@ ${commentChain}
           }
           // parse review
           const reviews = parseReview(response, patches, options.debug)
+          
+          // Refine line targeting for each review using AI
+          const refinedReviews = []
           for (const review of reviews) {
+            // Find the patch that contains this review
+            const matchingPatch = patches.find(([start, end]) => 
+              review.startLine >= start && review.endLine <= end
+            )
+            
+            if (matchingPatch) {
+              const [_, __, patchContent] = matchingPatch
+              const refinedReview = await refineLineTargeting(
+                heavyBot, 
+                review, 
+                patchContent, 
+                options.debug
+              )
+              refinedReviews.push(refinedReview)
+            } else {
+              refinedReviews.push(review)
+            }
+          }
+          
+          for (const review of refinedReviews) {
             // check for LGTM
             if (
               !options.reviewCommentLGTM &&
@@ -880,22 +903,22 @@ function parseStructuredReview(
   debug = false
 ): Review[] {
   const reviews: Review[] = []
-  
+
   // Split response by ### headers to find individual issues
   const issueBlocks = response.split(/^### /m).filter(block => block.trim())
-  
+
   // Try to match issues to patches by analyzing content
   for (const block of issueBlocks) {
     const lines = block.split('\n')
-    
+
     // Extract title (first line)
     const title = lines[0].trim()
     if (!title) continue
-    
+
     // Find description between <!-- DESCRIPTION START --> and <!-- DESCRIPTION END -->
     let description = ''
     let inDescription = false
-    
+
     for (const line of lines) {
       if (line.includes('<!-- DESCRIPTION START -->')) {
         inDescription = true
@@ -905,23 +928,23 @@ function parseStructuredReview(
         inDescription = false
         continue
       }
-      
+
       if (inDescription) {
         description += line + '\n'
       }
     }
-    
+
     // Find the best matching patch based on content analysis
     let bestPatch = patches[0] // fallback to first patch
     let bestScore = 0
-    
+
     for (const [startLine, endLine, patchContent] of patches) {
       let score = 0
-      
+
       // Check if patch content contains keywords from the issue
       const issueText = (title + ' ' + description).toLowerCase()
       const patchText = patchContent.toLowerCase()
-      
+
       // Score based on keyword matches
       if (issueText.includes('password') && patchText.includes('password')) score += 10
       if (issueText.includes('secret') && patchText.includes('secret')) score += 10
@@ -929,16 +952,16 @@ function parseStructuredReview(
       if (issueText.includes('sql') && patchText.includes('select')) score += 10
       if (issueText.includes('injection') && patchText.includes('${')) score += 10
       if (issueText.includes('exposure') && patchText.includes('res.json')) score += 10
-      
+
       if (score > bestScore) {
         bestScore = score
         bestPatch = [startLine, endLine, patchContent]
       }
     }
-    
+
     const [startLine, endLine] = bestPatch
-    
-    // Use the best matching patch line numbers
+
+    // Use the best matching patch line numbers as initial range
     const comment = `### ${title}
 
 <!-- DESCRIPTION START -->
@@ -959,8 +982,80 @@ LOCATIONS END -->`
       info(`Parsed structured review: ${title} at lines ${startLine}-${endLine} (score: ${bestScore})`)
     }
   }
-  
+
   return reviews
+}
+
+async function refineLineTargeting(
+  bot: Bot,
+  review: Review,
+  patchContent: string,
+  debug = false
+): Promise<Review> {
+  try {
+    const prompt = `You are a code review expert. I need you to identify the EXACT line numbers within a code patch that contain a specific security vulnerability.
+
+REVIEW COMMENT:
+${review.comment}
+
+CODE PATCH:
+\`\`\`
+${patchContent}
+\`\`\`
+
+TASK: Find the exact line numbers (within the patch) that contain the security issue mentioned in the review comment.
+
+RULES:
+1. Be extremely precise - only include lines that directly contain the vulnerability
+2. If the issue spans multiple lines, include only the necessary lines for context
+3. For SQL injection: target the line with the vulnerable query
+4. For hardcoded secrets: target the line with the hardcoded value
+5. For XSS: target the line with unsanitized output
+6. Return ONLY the line numbers in format: START_LINE,END_LINE
+
+EXAMPLE:
+If the patch shows:
+\`\`\`
+148: const adminPassword = 'admin123';
+149: const dbConnection = 'mongodb://...';
+150: res.json({ password: adminPassword });
+\`\`\`
+
+And the issue is "hardcoded password", return: 148,148
+
+RESPONSE FORMAT: Just return the line numbers as: START_LINE,END_LINE`
+
+    const [response] = await bot.chat(prompt, {})
+    
+    if (response && response.includes(',')) {
+      const [startStr, endStr] = response.trim().split(',')
+      const preciseStart = parseInt(startStr.trim(), 10)
+      const preciseEnd = parseInt(endStr.trim(), 10)
+      
+      if (!isNaN(preciseStart) && !isNaN(preciseEnd) && preciseStart <= preciseEnd) {
+        if (debug) {
+          info(`Refined line targeting: ${review.startLine}-${review.endLine} → ${preciseStart}-${preciseEnd}`)
+        }
+        
+        return {
+          ...review,
+          startLine: preciseStart,
+          endLine: preciseEnd
+        }
+      }
+    }
+    
+    if (debug) {
+      info(`Line refinement failed, using original range: ${review.startLine}-${review.endLine}`)
+    }
+    
+    return review
+  } catch (error) {
+    if (debug) {
+      info(`Line refinement error: ${error}, using original range: ${review.startLine}-${review.endLine}`)
+    }
+    return review
+  }
 }
 
 function parseReview(
