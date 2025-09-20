@@ -623,9 +623,9 @@ ${commentChain}
       }
 
       if (patchesPacked > 0) {
-        // perform review
+        // perform review - use heavy model for better issue detection
         try {
-          const [response] = await lightBot.chat(
+          const [response] = await heavyBot.chat(
             prompts.renderReviewFileDiff(ins),
             {}
           )
@@ -961,7 +961,7 @@ function parseStructuredReview(
       if (issueText.includes('jwt secret') && patchText.includes('jwt-secret')) score += 20
       if (issueText.includes('timeout') && patchText.includes('setTimeout')) score += 15
       if (issueText.includes('hardcoded') && patchText.includes('5000')) score += 15
-      
+
       // Lower priority matches
       if (issueText.includes('password') && patchText.includes('password')) score += 5
       if (issueText.includes('secret') && patchText.includes('secret')) score += 5
@@ -1015,55 +1015,71 @@ async function refineLineTargeting(
     const issueType = issueMatch ? issueMatch[1] : 'Security'
     const issueTitle = issueMatch ? issueMatch[2] : 'vulnerability'
 
-    const prompt = `Analyze this code patch and find the EXACT line numbers containing the security issue.
+    const prompt = `Find the EXACT line number containing this security vulnerability:
 
-CODE PATCH:
+CODE:
 ${patchContent}
 
-ISSUE: ${issueType}: ${issueTitle}
+VULNERABILITY: ${issueType}: ${issueTitle}
 
-RULES:
-- For hardcoded passwords: find the line with the hardcoded value
-- For SQL injection: find the line with the vulnerable query
-- For XSS: find the line with unsanitized output
-- For exposed secrets: find the line exposing the secret
-- Be precise: only include lines that directly contain the vulnerability
+TARGET SPECIFIC LINES:
+- Hardcoded password: find line with 'admin123' or 'password123'
+- SQL injection: find line with \`SELECT * FROM users WHERE id = \${userId}\`
+- Exposed secret: find line with 'secretKey' or 'jwtSecret'
+- Database credentials: find line with 'mongodb://'
+- Timeout: find line with 'setTimeout' or '5000'
 
-Return format: START_LINE,END_LINE`
+Return ONLY the line number: LINE_NUMBER
+
+Example: If the vulnerability is on line 150, return: 150`
 
     const [response] = await bot.chat(prompt, {})
 
+    // Try to parse single line number first
+    const lineMatch = response.match(/(\d+)/)
+    if (lineMatch) {
+      const preciseLine = parseInt(lineMatch[1], 10)
+      
+      if (!isNaN(preciseLine) && preciseLine >= review.startLine && preciseLine <= review.endLine) {
+        if (debug) {
+          info(`Refined line targeting: ${review.startLine}-${review.endLine} → ${preciseLine}-${preciseLine}`)
+        }
+        
+        return {
+          ...review,
+          startLine: preciseLine,
+          endLine: preciseLine
+        }
+      } else {
+        if (debug) {
+          info(`Refined line ${preciseLine} outside original range ${review.startLine}-${review.endLine}, using original`)
+        }
+      }
+    }
+    
+    // Fallback to range parsing
     if (response && response.includes(',')) {
       const [startStr, endStr] = response.trim().split(',')
       const preciseStart = parseInt(startStr.trim(), 10)
       const preciseEnd = parseInt(endStr.trim(), 10)
 
       if (!isNaN(preciseStart) && !isNaN(preciseEnd) && preciseStart <= preciseEnd) {
-        // Validate that the refined lines are within the original patch range
         if (preciseStart >= review.startLine && preciseEnd <= review.endLine) {
           if (debug) {
             info(`Refined line targeting: ${review.startLine}-${review.endLine} → ${preciseStart}-${preciseEnd}`)
           }
-
+          
           return {
             ...review,
             startLine: preciseStart,
             endLine: preciseEnd
           }
-        } else {
-          if (debug) {
-            info(`Refined lines ${preciseStart}-${preciseEnd} outside original range ${review.startLine}-${review.endLine}, using original`)
-          }
-        }
-      } else {
-        if (debug) {
-          info(`Invalid line numbers from AI: ${response}, using original range`)
         }
       }
-    } else {
-      if (debug) {
-        info(`AI response format invalid: ${response}, using original range`)
-      }
+    }
+    
+    if (debug) {
+      info(`AI response format invalid: ${response}, using original range`)
     }
 
     if (debug) {
