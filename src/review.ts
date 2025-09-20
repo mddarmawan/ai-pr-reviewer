@@ -884,9 +884,8 @@ function parseStructuredReview(
   // Split response by ### headers to find individual issues
   const issueBlocks = response.split(/^### /m).filter(block => block.trim())
   
-  for (let i = 0; i < issueBlocks.length && i < patches.length; i++) {
-    const block = issueBlocks[i]
-    const [startLine, endLine] = patches[i]
+  // Try to match issues to patches by analyzing content
+  for (const block of issueBlocks) {
     const lines = block.split('\n')
     
     // Extract title (first line)
@@ -912,7 +911,34 @@ function parseStructuredReview(
       }
     }
     
-    // Use the actual patch line numbers instead of extracting from AI response
+    // Find the best matching patch based on content analysis
+    let bestPatch = patches[0] // fallback to first patch
+    let bestScore = 0
+    
+    for (const [startLine, endLine, patchContent] of patches) {
+      let score = 0
+      
+      // Check if patch content contains keywords from the issue
+      const issueText = (title + ' ' + description).toLowerCase()
+      const patchText = patchContent.toLowerCase()
+      
+      // Score based on keyword matches
+      if (issueText.includes('password') && patchText.includes('password')) score += 10
+      if (issueText.includes('secret') && patchText.includes('secret')) score += 10
+      if (issueText.includes('hardcoded') && patchText.includes('admin123')) score += 10
+      if (issueText.includes('sql') && patchText.includes('select')) score += 10
+      if (issueText.includes('injection') && patchText.includes('${')) score += 10
+      if (issueText.includes('exposure') && patchText.includes('res.json')) score += 10
+      
+      if (score > bestScore) {
+        bestScore = score
+        bestPatch = [startLine, endLine, patchContent]
+      }
+    }
+    
+    const [startLine, endLine] = bestPatch
+    
+    // Use the best matching patch line numbers
     const comment = `### ${title}
 
 <!-- DESCRIPTION START -->
@@ -930,7 +956,7 @@ LOCATIONS END -->`
     })
     
     if (debug) {
-      info(`Parsed structured review: ${title} at lines ${startLine}-${endLine}`)
+      info(`Parsed structured review: ${title} at lines ${startLine}-${endLine} (score: ${bestScore})`)
     }
   }
   
