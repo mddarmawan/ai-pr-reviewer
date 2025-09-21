@@ -637,33 +637,8 @@ ${commentChain}
           // parse review
           const reviews = parseReview(response, patches, options.debug)
 
-          // Refine line targeting for each review using AI (can be disabled)
-          const enableLineRefinement = process.env.ENABLE_LINE_REFINEMENT !== 'false'
-          const refinedReviews = []
-
-          if (enableLineRefinement) {
-            for (const review of reviews) {
-              // Find the patch that contains this review
-              const matchingPatch = patches.find(([start, end]) =>
-                review.startLine >= start && review.endLine <= end
-              )
-
-              if (matchingPatch) {
-                const [_, __, patchContent] = matchingPatch
-                const refinedReview = await refineLineTargeting(
-                  lightBot,
-                  review,
-                  patchContent,
-                  options.debug
-                )
-                refinedReviews.push(refinedReview)
-              } else {
-                refinedReviews.push(review)
-              }
-            }
-          } else {
-            refinedReviews.push(...reviews)
-          }
+          // Use reviews directly - single stage approach
+          const refinedReviews = reviews
 
           for (const review of refinedReviews) {
             // check for LGTM
@@ -940,41 +915,24 @@ function parseStructuredReview(
       }
     }
 
-    // Find the best matching patch based on content analysis
-    let bestPatch = patches[0] // fallback to first patch
-    let bestScore = 0
-
-    for (const [startLine, endLine, patchContent] of patches) {
-      let score = 0
-
-      // Check if patch content contains keywords from the issue
-      const issueText = (title + ' ' + description).toLowerCase()
-      const patchText = patchContent.toLowerCase()
-
-      // More precise scoring based on specific vulnerability patterns
-      if (issueText.includes('hardcoded password') && patchText.includes('admin123')) score += 20
-      if (issueText.includes('hardcoded password') && patchText.includes('password123')) score += 20
-      if (issueText.includes('database credentials') && patchText.includes('mongodb://')) score += 20
-      if (issueText.includes('sql injection') && patchText.includes('${userId}')) score += 20
-      if (issueText.includes('sql injection') && patchText.includes('SELECT * FROM')) score += 20
-      if (issueText.includes('exposed secret') && patchText.includes('secretKey')) score += 20
-      if (issueText.includes('jwt secret') && patchText.includes('jwt-secret')) score += 20
-      if (issueText.includes('timeout') && patchText.includes('setTimeout')) score += 15
-      if (issueText.includes('hardcoded') && patchText.includes('5000')) score += 15
-
-      // Lower priority matches
-      if (issueText.includes('password') && patchText.includes('password')) score += 5
-      if (issueText.includes('secret') && patchText.includes('secret')) score += 5
-      if (issueText.includes('sql') && patchText.includes('select')) score += 5
-      if (issueText.includes('injection') && patchText.includes('${')) score += 5
-
-      if (score > bestScore) {
-        bestScore = score
-        bestPatch = [startLine, endLine, patchContent]
+    // Extract line numbers from LOCATIONS block
+    let startLine = patches[0][0] // fallback to first patch start
+    let endLine = patches[0][1]   // fallback to first patch end
+    
+    // Look for LOCATIONS START block
+    for (const line of lines) {
+      if (line.includes('<!-- LOCATIONS START')) {
+        const nextLine = lines[lines.indexOf(line) + 1]
+        if (nextLine && nextLine.includes('#')) {
+          const locationMatch = nextLine.match(/#L(\d+)-L(\d+)/)
+          if (locationMatch) {
+            startLine = parseInt(locationMatch[1], 10)
+            endLine = parseInt(locationMatch[2], 10)
+            break
+          }
+        }
       }
     }
-
-    const [startLine, endLine] = bestPatch
 
     // Use the best matching patch line numbers as initial range
     const comment = `### ${title}
@@ -994,9 +952,8 @@ LOCATIONS END -->`
     })
 
     if (debug) {
-      info(`Parsed structured review: ${title} at lines ${startLine}-${endLine} (score: ${bestScore})`)
+      info(`Parsed structured review: ${title} at lines ${startLine}-${endLine}`)
       info(`Issue text: ${(title + ' ' + description).toLowerCase()}`)
-      info(`Best patch content: ${bestPatch[2].substring(0, 100)}...`)
     }
   }
 

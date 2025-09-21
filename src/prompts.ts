@@ -79,24 +79,41 @@ Keep the summary brief but comprehensive.`
 
 ## 📝 RESPONSE FORMAT:
 
-**IMPORTANT: You MUST use this exact format for each issue found:**
+**IMPORTANT: You MUST use this exact structured format for each issue found:**
 
 For each issue, use this format:
-- Start with the line number range: X-Y: (e.g., 10-15:)
-- Follow with your detailed comment about the issue
-- End with --- on its own line
+\`\`\`
+### (type): title
 
-**CRITICAL: Use line numbers that exist in the actual diff/patch. Look at the patch context to determine the correct line numbers.**
-- The patch shows the actual line numbers in the diff
-- Use the line numbers from the patch, not absolute file line numbers
-- If the issue is on the first line of the patch, use the patch start line
-- If the issue is on the second line of the patch, use patch start line + 1
+<!-- DESCRIPTION START -->
+detailed description of the issue
+<!-- DESCRIPTION END -->
+
+<!-- LOCATIONS START
+filename#LstartLine-LendLine
+LOCATIONS END -->
+\`\`\`
+
+**CRITICAL: Use PRECISE line numbers that exist in the actual diff/patch.**
+- Target ONLY the specific lines containing the vulnerability
+- For hardcoded passwords: target the line with the hardcoded value
+- For SQL injection: target the line with the vulnerable query
+- For exposed secrets: target the line exposing the secret
+- Use single line numbers when possible (e.g., L150-L150)
+- Use small ranges only when necessary (e.g., L150-L152)
 
 Example format:
-140-140:
-This line contains a hardcoded API key that should be moved to environment variables.
+\`\`\`
+### Security: Hardcoded Password Exposure
 
-Security Impact: High - Exposes sensitive credentials
+<!-- DESCRIPTION START -->
+This line contains a hardcoded admin password ('admin123') that should never be stored in source code. Hardcoded credentials pose a critical security risk as they can be exposed through version control, code sharing, or unauthorized access. Passwords should be stored securely using environment variables or a secure secrets management system.
+<!-- DESCRIPTION END -->
+
+<!-- LOCATIONS START
+server.js#L150-L150
+LOCATIONS END -->
+\`\`\`
 Suggested Fix: Use process.env.API_KEY instead
 
 ---
