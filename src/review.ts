@@ -623,7 +623,7 @@ ${commentChain}
       }
 
       if (patchesPacked > 0) {
-        // perform review - use heavy model for better issue detection
+        // perform review - use heavy model for better issue detection and line targeting
         try {
           const [response] = await heavyBot.chat(
             prompts.renderReviewFileDiff(ins),
@@ -915,24 +915,6 @@ function parseStructuredReview(
       }
     }
 
-    // Extract line numbers from LOCATIONS block (if present)
-    let extractedStart: number | null = null
-    let extractedEnd: number | null = null
-    for (let i = 0; i < lines.length; i += 1) {
-      const line = lines[i]
-      if (line.includes('<!-- LOCATIONS START')) {
-        const nextLine = lines[i + 1]
-        if (nextLine && nextLine.includes('#')) {
-          const locationMatch = nextLine.match(/#L(\d+)-L(\d+)/)
-          if (locationMatch) {
-            extractedStart = parseInt(locationMatch[1], 10)
-            extractedEnd = parseInt(locationMatch[2], 10)
-          }
-        }
-        break
-      }
-    }
-
     // If description is empty, skip this issue
     if (description.trim() === '') {
       if (debug) {
@@ -941,48 +923,31 @@ function parseStructuredReview(
       continue
     }
 
-    // Choose the most relevant patch and precise lines
+    // Find the best matching patch using token scanning
     const issueText = (title + ' ' + description).toLowerCase()
-
-    // Try: prefer patch that contains the extracted start; otherwise use token scanning to find best patch
     let chosenPatch: [number, number, string] = patches[0]
-    if (extractedStart != null) {
-      const contains = patches.find(([pStart, pEnd]) => extractedStart! >= pStart && extractedStart! <= pEnd)
-      if (contains) {
-        chosenPatch = contains
-      }
-    }
-    if (chosenPatch === patches[0] && extractedStart == null) {
-      // No extracted lines; try token-based best patch
-      let bestIdx = -1
-      for (let idx = 0; idx < patches.length; idx += 1) {
-        const [pStart, , patchContent] = patches[idx]
-        const precise = choosePreciseLines(issueText, patchContent, pStart)
-        if (precise != null) {
-          bestIdx = idx
-          break
-        }
-      }
-      if (bestIdx >= 0) {
-        chosenPatch = patches[bestIdx]
+    let bestScore = 0
+
+    for (const [pStart, pEnd, patchContent] of patches) {
+      const precise = choosePreciseLines(issueText, patchContent, pStart)
+      if (precise != null) {
+        chosenPatch = [pStart, pEnd, patchContent]
+        break
       }
     }
 
-    let [startLine, endLine] = [chosenPatch[0], chosenPatch[0]]
+    // Use patch line numbers as base (these are guaranteed to be valid)
+    let [startLine, endLine] = [chosenPatch[0], chosenPatch[1]]
 
-    // Within chosen patch, pick precise lines by scanning tokens; fall back to extracted if valid; else start of patch
+    // Try to find precise lines within the chosen patch
     const preciseWithin = choosePreciseLines(issueText, chosenPatch[2], chosenPatch[0])
     if (preciseWithin != null) {
-      startLine = preciseWithin[0]
-      endLine = preciseWithin[1]
-    } else if (
-      extractedStart != null &&
-      extractedEnd != null &&
-      extractedStart >= chosenPatch[0] &&
-      extractedEnd <= chosenPatch[1]
-    ) {
-      startLine = extractedStart
-      endLine = extractedEnd
+      const [preciseStart, preciseEnd] = preciseWithin
+      // Ensure precise lines are within the patch bounds
+      if (preciseStart >= chosenPatch[0] && preciseEnd <= chosenPatch[1]) {
+        startLine = preciseStart
+        endLine = preciseEnd
+      }
     }
 
     // Use the best matching patch line numbers as initial range
