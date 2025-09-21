@@ -1010,89 +1010,165 @@ async function refineLineTargeting(
   debug = false
 ): Promise<Review> {
   try {
-    // Extract the issue type from the comment
-    const issueMatch = review.comment.match(/###\s*(\w+):\s*(.+)/)
-    const issueType = issueMatch ? issueMatch[1] : 'Security'
-    const issueTitle = issueMatch ? issueMatch[2] : 'vulnerability'
+    // Extract the issue type and description from the comment
+    const issueMatch = review.comment.match(/###\s*([^:]+):\s*(.+)/)
+    const issueCategory = issueMatch ? issueMatch[1].trim() : 'Code Review'
+    const issueDescription = issueMatch ? issueMatch[2].trim() : review.comment
 
-    const prompt = `Find the EXACT line number containing this security vulnerability:
+    // Enhanced generic prompt for any type of code review
+    const prompt = `You are a code reviewer analyzing a git patch. Your task is to identify the EXACT line number(s) where the specific issue mentioned in the review comment occurs.
 
-CODE:
+PATCH CONTENT:
+\`\`\`
 ${patchContent}
+\`\`\`
 
-VULNERABILITY: ${issueType}: ${issueTitle}
+REVIEW COMMENT:
+Category: ${issueCategory}
+Description: ${issueDescription}
 
-TARGET SPECIFIC LINES:
-- Hardcoded password: find line with 'admin123' or 'password123'
-- SQL injection: find line with \`SELECT * FROM users WHERE id = \${userId}\`
-- Exposed secret: find line with 'secretKey' or 'jwtSecret'
-- Database credentials: find line with 'mongodb://'
-- Timeout: find line with 'setTimeout' or '5000'
+INSTRUCTIONS:
+1. Analyze the patch content to find the specific line(s) where the issue described in the review comment occurs.
+2. Look for code that directly relates to the issue mentioned in the review comment.
+3. Consider the context of the issue:
+   - If it's about a specific function or method, find where that function is defined or called
+   - If it's about a variable or parameter, find where that variable is declared or used
+   - If it's about code structure or logic, find the relevant control flow or logic blocks
+   - If it's about performance, find the potentially inefficient operations
+   - If it's about style or formatting, find the lines with style issues
+   - If it's about error handling, find where errors might occur or where handling is missing
+4. Return ONLY the line number(s) where the issue is most relevant.
+5. If multiple consecutive lines contain the issue, return the range as "start,end".
+6. Be precise and specific - target only the lines that directly relate to the issue.
 
-Return ONLY the line number: LINE_NUMBER
+RESPONSE FORMAT:
+- For a single line: Just the number (e.g., "42")
+- For multiple consecutive lines: "start,end" (e.g., "42,45")
+- Do not include any explanation or other text.
 
-Example: If the vulnerability is on line 150, return: 150`
+Example responses:
+"42"
+"42,45"
+
+Now, identify the line number(s) for: ${issueCategory}: ${issueDescription}`
 
     const [response] = await bot.chat(prompt, {})
 
-    // Try to parse single line number first
-    const lineMatch = response.match(/(\d+)/)
-    if (lineMatch) {
-      const preciseLine = parseInt(lineMatch[1], 10)
-      
-      if (!isNaN(preciseLine) && preciseLine >= review.startLine && preciseLine <= review.endLine) {
-        if (debug) {
-          info(`Refined line targeting: ${review.startLine}-${review.endLine} → ${preciseLine}-${preciseLine}`)
-        }
-        
-        return {
-          ...review,
-          startLine: preciseLine,
-          endLine: preciseLine
-        }
-      } else {
-        if (debug) {
-          info(`Refined line ${preciseLine} outside original range ${review.startLine}-${review.endLine}, using original`)
-        }
-      }
-    }
-    
-    // Fallback to range parsing
-    if (response && response.includes(',')) {
-      const [startStr, endStr] = response.trim().split(',')
-      const preciseStart = parseInt(startStr.trim(), 10)
-      const preciseEnd = parseInt(endStr.trim(), 10)
-
-      if (!isNaN(preciseStart) && !isNaN(preciseEnd) && preciseStart <= preciseEnd) {
-        if (preciseStart >= review.startLine && preciseEnd <= review.endLine) {
-          if (debug) {
-            info(`Refined line targeting: ${review.startLine}-${review.endLine} → ${preciseStart}-${preciseEnd}`)
-          }
-          
-          return {
-            ...review,
-            startLine: preciseStart,
-            endLine: preciseEnd
-          }
-        }
-      }
-    }
-    
     if (debug) {
-      info(`AI response format invalid: ${response}, using original range`)
+      info(`AI response for line targeting: ${response}`)
     }
+
+    // Try to parse the response to extract line numbers
+    const refinedReview = parseLineResponse(response, review, patchContent, debug)
+
+    if (refinedReview) {
+      return refinedReview
+    }
+
+    // If parsing failed, try a more specific context-aware prompt
+    const contextPrompt = `Based on this review comment: "${issueCategory}: ${issueDescription}"
+
+Find the MOST RELEVANT line number in this code patch:
+
+\`\`\`
+${patchContent}
+\`\`\`
+
+Return only the single most relevant line number as a number.`
+
+    const [contextResponse] = await bot.chat(contextPrompt, {})
 
     if (debug) {
-      info(`Line refinement failed, using original range: ${review.startLine}-${review.endLine}`)
+      info(`Context-aware AI response: ${contextResponse}`)
     }
 
-    return review
+    const contextReview = parseLineResponse(contextResponse, review, patchContent, debug)
+
+    return contextReview || review
   } catch (error) {
     if (debug) {
       info(`Line refinement error: ${error}, using original range: ${review.startLine}-${review.endLine}`)
     }
     return review
   }
+}
+
+// Enhanced helper function to parse line response and validate
+function parseLineResponse(
+  response: string,
+  review: Review,
+  patchContent: string,
+  debug: boolean
+): Review | null {
+  if (!response || typeof response !== 'string') return null
+
+  // Clean the response - remove any non-numeric characters except commas and digits
+  const cleanResponse = response.replace(/[^\d,]/g, '').trim()
+  if (!cleanResponse) return null
+
+  // Split the patch into lines for validation
+  const patchLines = patchContent.split('\n')
+  const totalLines = patchLines.length
+
+  // Try to parse single line number first
+  const singleLineMatch = cleanResponse.match(/^(\d+)$/)
+  if (singleLineMatch) {
+    const lineNum = parseInt(singleLineMatch[1], 10)
+
+    // Validate the line number
+    if (!isNaN(lineNum) &&
+        lineNum >= 1 &&
+        lineNum <= totalLines &&
+        lineNum >= review.startLine &&
+        lineNum <= review.endLine) {
+
+      if (debug) {
+        info(`Refined to single line: ${review.startLine}-${review.endLine} → ${lineNum}-${lineNum}`)
+      }
+
+      return {
+        ...review,
+        startLine: lineNum,
+        endLine: lineNum
+      }
+    } else if (debug) {
+      info(`Line ${lineNum} out of bounds (patch: 1-${totalLines}, review: ${review.startLine}-${review.endLine})`)
+    }
+  }
+
+  // Try to parse range "start,end"
+  const rangeMatch = cleanResponse.match(/^(\d+),(\d+)$/)
+  if (rangeMatch) {
+    const start = parseInt(rangeMatch[1], 10)
+    const end = parseInt(rangeMatch[2], 10)
+
+    // Validate the range
+    if (!isNaN(start) && !isNaN(end) &&
+        start <= end &&
+        start >= 1 &&
+        end <= totalLines &&
+        start >= review.startLine &&
+        end <= review.endLine) {
+
+      if (debug) {
+        info(`Refined to range: ${review.startLine}-${review.endLine} → ${start}-${end}`)
+      }
+
+      return {
+        ...review,
+        startLine: start,
+        endLine: end
+      }
+    } else if (debug) {
+      info(`Range ${start}-${end} out of bounds (patch: 1-${totalLines}, review: ${review.startLine}-${review.endLine})`)
+    }
+  }
+
+  if (debug) {
+    info(`Failed to parse response: "${response}" (cleaned: "${cleanResponse}")`)
+  }
+
+  return null
 }
 
 function parseReview(
