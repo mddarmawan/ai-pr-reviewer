@@ -167,7 +167,7 @@ server.js#L140-L140
 LOCATIONS END -->
 \`\`\`
 
-**CRITICAL: Do NOT duplicate headers, do NOT duplicate HTML comments, and use the EXACT line numbers from the patch.**
+**CRITICAL: You MUST use the EXACT structured format above. Do NOT use any other format.**
 
 ## ⚠️ IMPORTANT:
 
@@ -176,9 +176,25 @@ LOCATIONS END -->
 - **Focus on what's broken, not what's being fixed**
 - **Be constructive and provide actionable feedback**
 - **Always look for security vulnerabilities and code issues - be thorough in your analysis**
-- **Use line numbers that exist in the actual patch/diff**
-- **End each comment with --- on its own line**
+- **Use PRECISE line numbers that exist in the actual patch/diff**
+- **Target ONLY the specific lines containing the vulnerability**
+- **Use single line numbers when possible (e.g., L150-L150)**
 - **Be VERY careful with line numbers - they must match the patch context**
+
+**FINAL REMINDER: You MUST use the EXACT structured format above. Do NOT use any other format.**
+**For each vulnerability, you MUST include the LOCATIONS START block with precise line numbers.**
+**Example: If you see hardcoded password 'admin123' on line 150, use:**
+\`\`\`
+### Security: Hardcoded Password Exposure
+
+<!-- DESCRIPTION START -->
+This line contains a hardcoded admin password ('admin123') that should never be stored in source code.
+<!-- DESCRIPTION END -->
+
+<!-- LOCATIONS START
+server.js#L150-L150
+LOCATIONS END -->
+\`\`\`
 
 Remember: You are reviewing code changes, not the final state. Focus on what's being changed and whether those changes introduce vulnerabilities or issues.`
 

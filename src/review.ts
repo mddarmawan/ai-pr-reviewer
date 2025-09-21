@@ -918,7 +918,7 @@ function parseStructuredReview(
     // Extract line numbers from LOCATIONS block
     let startLine = patches[0][0] // fallback to first patch start
     let endLine = patches[0][1]   // fallback to first patch end
-    
+
     // Look for LOCATIONS START block
     for (const line of lines) {
       if (line.includes('<!-- LOCATIONS START')) {
