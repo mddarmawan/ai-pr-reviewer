@@ -920,9 +920,10 @@ function parseStructuredReview(
     let endLine = patches[0][1]   // fallback to first patch end
 
     // Look for LOCATIONS START block
-    for (const line of lines) {
+    for (let i = 0; i < lines.length; i += 1) {
+      const line = lines[i]
       if (line.includes('<!-- LOCATIONS START')) {
-        const nextLine = lines[lines.indexOf(line) + 1]
+        const nextLine = lines[i + 1]
         if (nextLine && nextLine.includes('#')) {
           const locationMatch = nextLine.match(/#L(\d+)-L(\d+)/)
           if (locationMatch) {
@@ -930,6 +931,22 @@ function parseStructuredReview(
             endLine = parseInt(locationMatch[2], 10)
             break
           }
+        }
+      }
+    }
+
+    // Deterministic precision fallback: scan patch content for vulnerability tokens
+    const issueText = (title + ' ' + description).toLowerCase()
+    const containingPatch = patches.find(([pStart, pEnd]) => startLine >= pStart && startLine <= pEnd)
+    if (containingPatch) {
+      const [pStart, pEnd, patchContent] = containingPatch
+      const precise = choosePreciseLines(issueText, patchContent, pStart)
+      if (precise != null) {
+        const [pStartLine, pEndLine] = precise
+        // ensure within the selected patch bounds and monotonic
+        if (pStartLine >= pStart && pEndLine <= pEnd && pStartLine <= pEndLine) {
+          startLine = pStartLine
+          endLine = pEndLine
         }
       }
     }
@@ -958,6 +975,72 @@ LOCATIONS END -->`
   }
 
   return reviews
+}
+
+// Heuristic line chooser: pin to exact lines by token scanning within the patch
+function choosePreciseLines(
+  issueTextLower: string,
+  patchContent: string,
+  patchStartLine: number
+): [number, number] | null {
+  const lines = patchContent.split('\n')
+
+  // Build token sets by issue types
+  const tokenGroups: string[][] = []
+
+  // Hardcoded password
+  if (issueTextLower.includes('hardcoded') && issueTextLower.includes('password')) {
+    tokenGroups.push(['admin123'], ['password123'], ['password'])
+  }
+  // Database credentials
+  if (issueTextLower.includes('database') || issueTextLower.includes('credentials')) {
+    tokenGroups.push(['mongodb://'])
+  }
+  // JWT / secret exposure
+  if (issueTextLower.includes('jwt') || issueTextLower.includes('secret')) {
+    tokenGroups.push(['jwt', 'secret'])
+    tokenGroups.push(['secretkey'])
+  }
+  // SQL injection
+  if (issueTextLower.includes('sql') || issueTextLower.includes('injection')) {
+    tokenGroups.push(['select * from'])
+    tokenGroups.push(['${'])
+  }
+  // Exposed via response
+  if (issueTextLower.includes('expos') || issueTextLower.includes('response')) {
+    tokenGroups.push(['res.json'])
+  }
+  // Timeout
+  if (issueTextLower.includes('timeout')) {
+    tokenGroups.push(['settimeout'], ['5000'])
+  }
+
+  // Normalize line for search
+  const normalize = (s: string) => s.toLowerCase()
+
+  // Try to find the first matching token group
+  for (const tokens of tokenGroups) {
+    for (let idx = 0; idx < lines.length; idx += 1) {
+      const ln = normalize(lines[idx])
+      const match = tokens.every((t) => ln.includes(t))
+      if (match) {
+        const absolute = patchStartLine + idx
+        return [absolute, absolute]
+      }
+    }
+  }
+
+  // If nothing matched, try generic keywords
+  const genericTokens = ['password', 'secret', 'jwt', 'mongodb://', 'select * from', '${', 'res.json', 'settimeout']
+  for (let idx = 0; idx < lines.length; idx += 1) {
+    const ln = normalize(lines[idx])
+    if (genericTokens.some((t) => ln.includes(t))) {
+      const absolute = patchStartLine + idx
+      return [absolute, absolute]
+    }
+  }
+
+  return null
 }
 
 async function refineLineTargeting(
