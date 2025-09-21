@@ -915,11 +915,9 @@ function parseStructuredReview(
       }
     }
 
-    // Extract line numbers from LOCATIONS block
-    let startLine = patches[0][0] // fallback to first patch start
-    let endLine = patches[0][1]   // fallback to first patch end
-
-    // Look for LOCATIONS START block
+    // Extract line numbers from LOCATIONS block (if present)
+    let extractedStart: number | null = null
+    let extractedEnd: number | null = null
     for (let i = 0; i < lines.length; i += 1) {
       const line = lines[i]
       if (line.includes('<!-- LOCATIONS START')) {
@@ -927,28 +925,64 @@ function parseStructuredReview(
         if (nextLine && nextLine.includes('#')) {
           const locationMatch = nextLine.match(/#L(\d+)-L(\d+)/)
           if (locationMatch) {
-            startLine = parseInt(locationMatch[1], 10)
-            endLine = parseInt(locationMatch[2], 10)
-            break
+            extractedStart = parseInt(locationMatch[1], 10)
+            extractedEnd = parseInt(locationMatch[2], 10)
           }
         }
+        break
       }
     }
 
-    // Deterministic precision fallback: scan patch content for vulnerability tokens
+    // If description is empty, skip this issue
+    if (description.trim() === '') {
+      if (debug) {
+        info(`Skipping issue with empty description: ${title}`)
+      }
+      continue
+    }
+
+    // Choose the most relevant patch and precise lines
     const issueText = (title + ' ' + description).toLowerCase()
-    const containingPatch = patches.find(([pStart, pEnd]) => startLine >= pStart && startLine <= pEnd)
-    if (containingPatch) {
-      const [pStart, pEnd, patchContent] = containingPatch
-      const precise = choosePreciseLines(issueText, patchContent, pStart)
-      if (precise != null) {
-        const [pStartLine, pEndLine] = precise
-        // ensure within the selected patch bounds and monotonic
-        if (pStartLine >= pStart && pEndLine <= pEnd && pStartLine <= pEndLine) {
-          startLine = pStartLine
-          endLine = pEndLine
+
+    // Try: prefer patch that contains the extracted start; otherwise use token scanning to find best patch
+    let chosenPatch: [number, number, string] = patches[0]
+    if (extractedStart != null) {
+      const contains = patches.find(([pStart, pEnd]) => extractedStart! >= pStart && extractedStart! <= pEnd)
+      if (contains) {
+        chosenPatch = contains
+      }
+    }
+    if (chosenPatch === patches[0] && extractedStart == null) {
+      // No extracted lines; try token-based best patch
+      let bestIdx = -1
+      for (let idx = 0; idx < patches.length; idx += 1) {
+        const [pStart, , patchContent] = patches[idx]
+        const precise = choosePreciseLines(issueText, patchContent, pStart)
+        if (precise != null) {
+          bestIdx = idx
+          break
         }
       }
+      if (bestIdx >= 0) {
+        chosenPatch = patches[bestIdx]
+      }
+    }
+
+    let [startLine, endLine] = [chosenPatch[0], chosenPatch[0]]
+
+    // Within chosen patch, pick precise lines by scanning tokens; fall back to extracted if valid; else start of patch
+    const preciseWithin = choosePreciseLines(issueText, chosenPatch[2], chosenPatch[0])
+    if (preciseWithin != null) {
+      startLine = preciseWithin[0]
+      endLine = preciseWithin[1]
+    } else if (
+      extractedStart != null &&
+      extractedEnd != null &&
+      extractedStart >= chosenPatch[0] &&
+      extractedEnd <= chosenPatch[1]
+    ) {
+      startLine = extractedStart
+      endLine = extractedEnd
     }
 
     // Use the best matching patch line numbers as initial range
@@ -971,6 +1005,7 @@ LOCATIONS END -->`
     if (debug) {
       info(`Parsed structured review: ${title} at lines ${startLine}-${endLine}`)
       info(`Issue text: ${(title + ' ' + description).toLowerCase()}`)
+      info(`Chosen patch: ${chosenPatch[0]}-${chosenPatch[1]}`)
     }
   }
 
