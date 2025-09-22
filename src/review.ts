@@ -636,7 +636,7 @@ ${commentChain}
             return
           }
           // parse review
-          const reviews = parseReview(response, patches, options.debug)
+          const reviews = parseReview(response, patches, options.debug, filename)
 
           // Use reviews directly - single stage approach
           const refinedReviews = reviews
@@ -882,7 +882,8 @@ interface Review {
 function parseStructuredReview(
   response: string,
   patches: Array<[number, number, string]>,
-  debug = false
+  debug = false,
+  filename: string = 'unknown'
 ): Review[] {
   const reviews: Review[] = []
 
@@ -977,6 +978,20 @@ function parseStructuredReview(
     }
 
     // Create the comment with the determined line numbers
+    // Extract filename from the LOCATIONS block if available
+    let commentFilename = filename
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].includes('<!-- LOCATIONS START')) {
+            if (i+1 < lines.length && lines[i+1].includes('#')) {
+                const filenameMatch = lines[i+1].match(/^(.+?)#L\d+-L\d+/)
+                if (filenameMatch) {
+                    commentFilename = filenameMatch[1]
+                }
+            }
+            break
+        }
+    }
+    
     const comment = `### ${title}
 
 <!-- DESCRIPTION START -->
@@ -984,7 +999,7 @@ ${description.trim()}
 <!-- DESCRIPTION END -->
 
 <!-- LOCATIONS START
-L${startLine}-L${endLine}
+${commentFilename}#L${startLine}-L${endLine}
 LOCATIONS END -->`
 
     reviews.push({
@@ -1185,7 +1200,8 @@ function parseLineResponse(
 function parseReview(
   response: string,
   patches: Array<[number, number, string]>,
-  debug = false
+  debug = false,
+  filename = 'unknown'
 ): Review[] {
   const reviews: Review[] = []
 
@@ -1204,7 +1220,7 @@ function parseReview(
 
   // Check if response is in the new structured format
   if (response.includes('### ') && response.includes('<!-- DESCRIPTION START -->')) {
-    return parseStructuredReview(response, patches, debug)
+    return parseStructuredReview(response, patches, debug, filename)
   }
 
   // Fallback to old format parsing
