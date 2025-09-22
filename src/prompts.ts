@@ -101,11 +101,13 @@ LOCATIONS END -->
 
 **CRITICAL: Use PRECISE line numbers that exist in the actual diff/patch.**
 - Target ONLY the specific lines containing the vulnerability
-- For hardcoded passwords: target the line with the hardcoded value
-- For SQL injection: target the line with the vulnerable query
-- For exposed secrets: target the line exposing the secret
+- For hardcoded passwords: target the line with the hardcoded value (e.g., const adminPassword = 'admin123456')
+- For SQL injection: target the line with the vulnerable query (e.g., const query = \`SELECT * FROM users WHERE id = \${userId}\`)
+- For exposed secrets: target the line exposing the secret (e.g., res.json({ password: adminPassword }))
 - Use single line numbers when possible (e.g., L150-L150)
 - Use small ranges only when necessary (e.g., L150-L152)
+- Look at the actual diff content to find the EXACT line numbers
+- Do NOT guess line numbers - analyze the diff carefully
 
 Example format:
 \`\`\`

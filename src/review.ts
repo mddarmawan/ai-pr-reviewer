@@ -923,34 +923,41 @@ function parseStructuredReview(
       continue
     }
 
-    // Find the best matching patch using token scanning
-    const issueText = (title + ' ' + description).toLowerCase()
-    let chosenPatch: [number, number, string] = patches[0]
-    let bestScore = 0
+    // Extract line numbers from LOCATIONS block
+    let extractedStart: number | null = null
+    let extractedEnd: number | null = null
 
-    for (const [pStart, pEnd, patchContent] of patches) {
-      const precise = choosePreciseLines(issueText, patchContent, pStart)
-      if (precise != null) {
-        chosenPatch = [pStart, pEnd, patchContent]
+    for (let i = 0; i < lines.length; i += 1) {
+      const line = lines[i]
+      if (line.includes('<!-- LOCATIONS START')) {
+        const nextLine = lines[i + 1]
+        if (nextLine && nextLine.includes('#')) {
+          const locationMatch = nextLine.match(/#L(\d+)-L(\d+)/)
+          if (locationMatch) {
+            extractedStart = parseInt(locationMatch[1], 10)
+            extractedEnd = parseInt(locationMatch[2], 10)
+          }
+        }
         break
       }
     }
 
-    // Use patch line numbers as base (these are guaranteed to be valid)
-    let [startLine, endLine] = [chosenPatch[0], chosenPatch[1]]
+    // Use the AI's line numbers directly - let the AI do all the work
+    let [startLine, endLine] = [patches[0][0], patches[0][1]]
 
-    // Try to find precise lines within the chosen patch
-    const preciseWithin = choosePreciseLines(issueText, chosenPatch[2], chosenPatch[0])
-    if (preciseWithin != null) {
-      const [preciseStart, preciseEnd] = preciseWithin
-      // Ensure precise lines are within the patch bounds
-      if (preciseStart >= chosenPatch[0] && preciseEnd <= chosenPatch[1]) {
-        startLine = preciseStart
-        endLine = preciseEnd
+    // If AI provided specific line numbers, use them (but validate they're within patch bounds)
+    if (extractedStart != null && extractedEnd != null) {
+      // Find which patch contains these line numbers
+      for (const [pStart, pEnd] of patches) {
+        if (extractedStart >= pStart && extractedEnd <= pEnd) {
+          startLine = extractedStart
+          endLine = extractedEnd
+          break
+        }
       }
     }
 
-    // Use the best matching patch line numbers as initial range
+    // Create the comment with the determined line numbers
     const comment = `### ${title}
 
 <!-- DESCRIPTION START -->
@@ -970,76 +977,21 @@ LOCATIONS END -->`
     if (debug) {
       info(`Parsed structured review: ${title} at lines ${startLine}-${endLine}`)
       info(`Issue text: ${(title + ' ' + description).toLowerCase()}`)
-      info(`Chosen patch: ${chosenPatch[0]}-${chosenPatch[1]}`)
+      info(`Using patch bounds: ${patches[0][0]}-${patches[0][1]}`)
     }
   }
 
   return reviews
 }
 
-// Heuristic line chooser: pin to exact lines by token scanning within the patch
+// Simple fallback - let AI handle all detection and line targeting
 function choosePreciseLines(
   issueTextLower: string,
   patchContent: string,
   patchStartLine: number
 ): [number, number] | null {
-  const lines = patchContent.split('\n')
-
-  // Build token sets by issue types
-  const tokenGroups: string[][] = []
-
-  // Hardcoded password
-  if (issueTextLower.includes('hardcoded') && issueTextLower.includes('password')) {
-    tokenGroups.push(['admin123'], ['password123'], ['password'])
-  }
-  // Database credentials
-  if (issueTextLower.includes('database') || issueTextLower.includes('credentials')) {
-    tokenGroups.push(['mongodb://'])
-  }
-  // JWT / secret exposure
-  if (issueTextLower.includes('jwt') || issueTextLower.includes('secret')) {
-    tokenGroups.push(['jwt', 'secret'])
-    tokenGroups.push(['secretkey'])
-  }
-  // SQL injection
-  if (issueTextLower.includes('sql') || issueTextLower.includes('injection')) {
-    tokenGroups.push(['select * from'])
-    tokenGroups.push(['${'])
-  }
-  // Exposed via response
-  if (issueTextLower.includes('expos') || issueTextLower.includes('response')) {
-    tokenGroups.push(['res.json'])
-  }
-  // Timeout
-  if (issueTextLower.includes('timeout')) {
-    tokenGroups.push(['settimeout'], ['5000'])
-  }
-
-  // Normalize line for search
-  const normalize = (s: string) => s.toLowerCase()
-
-  // Try to find the first matching token group
-  for (const tokens of tokenGroups) {
-    for (let idx = 0; idx < lines.length; idx += 1) {
-      const ln = normalize(lines[idx])
-      const match = tokens.every((t) => ln.includes(t))
-      if (match) {
-        const absolute = patchStartLine + idx
-        return [absolute, absolute]
-      }
-    }
-  }
-
-  // If nothing matched, try generic keywords
-  const genericTokens = ['password', 'secret', 'jwt', 'mongodb://', 'select * from', '${', 'res.json', 'settimeout']
-  for (let idx = 0; idx < lines.length; idx += 1) {
-    const ln = normalize(lines[idx])
-    if (genericTokens.some((t) => ln.includes(t))) {
-      const absolute = patchStartLine + idx
-      return [absolute, absolute]
-    }
-  }
-
+  // The AI should provide precise line numbers in its response
+  // This is just a fallback that returns null to use patch bounds
   return null
 }
 
