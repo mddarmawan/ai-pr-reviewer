@@ -250,7 +250,7 @@ Please analyze the above code changes and provide your assessment.`
     let prompt = this.reviewFileDiff
 
     if (inputs.patches) {
-      prompt += `\n\n## Code Changes to Review:\n\n**File:** ${inputs.filename}\n\n**Patches:**\n${inputs.patches}`
+      prompt += `\n\n## Code Changes to Review:\n\n**File:** ${inputs.filename}\n\n**Patches:**\n${inputs.patches}\n\n**IMPORTANT:** The diff above shows changes with @@ line markers. To provide precise line targeting:\n\n**Understanding the diff format:**\n- \`@@ -81,6 +82,22 @@\` means: starting at line 82 in the new file, 22 lines were added\n- Lines starting with \`+\` are additions in the new file\n- Lines starting with \`-\` are deletions from the old file\n- Lines starting with \` \` (space) are unchanged context\n\n**For precise line targeting:**\n1. Look at the @@ marker to find the starting line number (e.g., +82 means starting at line 82)\n2. Count the \`+\` lines to find where your target line is\n3. For example: if the hardcoded password is the 3rd \`+\` line after \`@@ -81,6 +82,22 @@\`, it's at line 82 + 3 - 1 = line 84\n4. Use that exact line number in your LOCATIONS block (e.g., routes/auth.js#L84-L84)\n\n**Example calculation:**\n\`\`\`\n@@ -81,6 +82,22 @@ router.post('/login', validate(loginSchema), async (req, res) => {\n+    const adminPassword = 'admin123456';  // This is line 82 + 1 = 83\n+    const isAdmin = password === adminPassword;  // This is line 82 + 2 = 84\n\`\`\``
     }
 
     return prompt
