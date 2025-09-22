@@ -76,6 +76,11 @@ Keep the summary brief but comprehensive.`
 - Environment variable usage for secrets
 - Proper password hashing with appropriate rounds
 - Good error response patterns
+- Documentation comments (lines starting with // or /*)
+- Code formatting and style issues
+- Timestamp comments or logging statements
+- Variable naming conventions
+- Code organization and structure
 
 ## 📝 RESPONSE FORMAT:
 
