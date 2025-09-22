@@ -538,6 +538,7 @@ ${
       // make a copy of inputs
       const ins: Inputs = inputs.clone()
       ins.filename = filename
+      ins.fileContent = fileContent
 
       // calculate tokens based on inputs so far
       let tokens = getTokenCount(prompts.renderReviewFileDiff(ins))
@@ -931,11 +932,19 @@ function parseStructuredReview(
       const line = lines[i]
       if (line.includes('<!-- LOCATIONS START')) {
         const nextLine = lines[i + 1]
+        if (debug) {
+          info(`Looking for line numbers in: "${nextLine}"`)
+        }
         if (nextLine && nextLine.includes('#')) {
           const locationMatch = nextLine.match(/#L(\d+)-L(\d+)/)
           if (locationMatch) {
             extractedStart = parseInt(locationMatch[1], 10)
             extractedEnd = parseInt(locationMatch[2], 10)
+            if (debug) {
+              info(`Extracted line numbers: ${extractedStart}-${extractedEnd}`)
+            }
+          } else if (debug) {
+            info(`No match found for line: "${nextLine}"`)
           }
         }
         break
@@ -947,13 +956,23 @@ function parseStructuredReview(
 
     // If AI provided specific line numbers, use them (but validate they're within patch bounds)
     if (extractedStart != null && extractedEnd != null) {
+      if (debug) {
+        info(`AI provided line numbers: ${extractedStart}-${extractedEnd}`)
+        info(`Available patches: ${patches.map(([s, e]) => `${s}-${e}`).join(', ')}`)
+      }
       // Find which patch contains these line numbers
       for (const [pStart, pEnd] of patches) {
         if (extractedStart >= pStart && extractedEnd <= pEnd) {
           startLine = extractedStart
           endLine = extractedEnd
+          if (debug) {
+            info(`Using AI line numbers: ${startLine}-${endLine} (within patch ${pStart}-${pEnd})`)
+          }
           break
         }
+      }
+      if (debug && startLine === patches[0][0]) {
+        info(`Line numbers ${extractedStart}-${extractedEnd} not found in any patch, using patch bounds`)
       }
     }
 
