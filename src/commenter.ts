@@ -301,7 +301,9 @@ ${statusMsg}
       const commentData: any = {
         path: comment.path,
         body: comment.message,
-        line: comment.endLine
+        line: comment.endLine,
+        // Always set side to RIGHT (new file) since we're reviewing the current state
+        side: 'RIGHT'
       }
 
       if (comment.startLine !== comment.endLine) {
@@ -358,6 +360,8 @@ ${statusMsg}
           pull_number: pullNumber,
           // eslint-disable-next-line camelcase
           commit_id: commitId,
+          // We need to explicitly set the side to RIGHT and line to ensure GitHub displays the comment correctly
+          side: 'RIGHT',
           ...generateCommentData(comment)
         }
 

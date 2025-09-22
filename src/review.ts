@@ -991,7 +991,7 @@ function parseStructuredReview(
             break
         }
     }
-    
+
     const comment = `### ${title}
 
 <!-- DESCRIPTION START -->
