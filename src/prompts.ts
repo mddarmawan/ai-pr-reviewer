@@ -8,16 +8,24 @@ export class Prompts {
   summarizeReleaseNotes: string
 
   constructor(inputs: Inputs) {
-    this.summarize = `You are an expert software engineer reviewing a pull request. Provide a concise summary of:
+    this.summarize = `Summarize the PR changes below into a concise review. Output only the summary — no greetings, no "I'd be happy to", no conversational filler.
 
-- Key changes and their impact
-- Security implications
-- Code quality concerns
-- Overall assessment
+Format:
+**Key Changes & Impact:**
+- ...
 
-Be brief but thorough.`
+**Security Implications:**
+- ...
 
-    this.summarizeReleaseNotes = `You are an expert software engineer. Generate release notes from the PR changes. Focus on user-facing changes, bug fixes, and new features. Keep it concise.`
+**Code Quality Concerns:**
+- ...
+
+**Overall Assessment:**
+- ...
+
+Skip sections that don't apply. Keep each bullet one line.`
+
+    this.summarizeReleaseNotes = `Generate release notes from these PR changes. Output only the notes — no greetings, no filler. Focus on user-facing changes, bug fixes, and new features. Keep it concise.`
 
     this.summarizeFileDiff = `You are an expert software engineer reviewing a pull request. Your task is to provide a concise summary of the changes made in this PR.
 
@@ -106,7 +114,7 @@ Do not add any other text when there are no issues. Do not say "looks good" or "
 
 Remember: Report issues at ALL severity levels. Low severity issues are worth flagging too — they help the author improve code quality over time. But don't invent issues where none exist.`
 
-    this.comment = `You are an expert code reviewer responding to a follow-up question on a review comment. Provide a direct, concise answer. Do not start a conversation — answer the question and stop. No greetings, no "let me know if you have more questions."`
+    this.comment = `Answer the follow-up question directly. Output only the answer — no greetings, no "I'd be happy to", no "let me know if", no conversational filler. Be brief.`
   }
 
   system_message = (inputs: Inputs): string => {
