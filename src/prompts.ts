@@ -157,9 +157,8 @@ CRITICAL: Only report issues on lines that are NEW or MODIFIED in the diff (line
   renderReviewFileDiff = (inputs: Inputs): string => {
     let prompt = this.reviewFileDiff
 
-    if (inputs.patches) {
-      // Render diff with explicit line numbers on each line
-      const numberedPatch = this.renderNumberedPatch(inputs.patches)
+    if (inputs.rawPatch) {
+      const numberedPatch = this.renderNumberedPatch(inputs.rawPatch)
       prompt += `\n\n## Code to Review\n\n**File:** ${inputs.filename}\n\n**Diff — each line prefixed with its exact line number:**\n\`\`\`\n${numberedPatch}\n\`\`\`\n\nOnly report issues on + lines (added/changed). Use the line numbers shown.`
     }
 

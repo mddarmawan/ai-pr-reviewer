@@ -8,6 +8,7 @@ export class Inputs {
   fileContent: string
   fileDiff: string
   patches: string
+  rawPatch: string
   diff: string
   commentChain: string
   comment: string
@@ -22,6 +23,7 @@ export class Inputs {
     fileContent = 'file contents cannot be provided',
     fileDiff = 'file diff cannot be provided',
     patches = '',
+    rawPatch = '',
     diff = 'no diff',
     commentChain = 'no other comments on this patch',
     comment = 'no comment provided'
@@ -35,6 +37,7 @@ export class Inputs {
     this.fileContent = fileContent
     this.fileDiff = fileDiff
     this.patches = patches
+    this.rawPatch = rawPatch
     this.diff = diff
     this.commentChain = commentChain
     this.comment = comment
@@ -51,6 +54,7 @@ export class Inputs {
       this.fileContent,
       this.fileDiff,
       this.patches,
+      this.rawPatch,
       this.diff,
       this.commentChain,
       this.comment

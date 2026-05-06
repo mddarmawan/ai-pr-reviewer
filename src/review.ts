@@ -468,12 +468,14 @@ ${SHORT_SUMMARY_END_TAG}`
     const doReview = async (
       filename: string,
       fileContent: string,
+      fileDiff: string,
       patches: Array<[number, number, string]>
     ): Promise<void> => {
       info(`reviewing ${filename}`)
       const ins: Inputs = inputs.clone()
       ins.filename = filename
       ins.fileContent = fileContent
+      ins.rawPatch = fileDiff
 
       let tokens = getTokenCount(prompts.renderReviewFileDiff(ins))
       let patchesToPack = 0
@@ -604,11 +606,11 @@ ${commentChain}
     }
 
     const reviewPromises = []
-    for (const [filename, fileContent, , patches] of filesAndChangesReview) {
+    for (const [filename, fileContent, fileDiff, patches] of filesAndChangesReview) {
       if (options.maxFiles <= 0 || reviewPromises.length < options.maxFiles) {
         reviewPromises.push(
           openaiConcurrencyLimit(async () => {
-            await doReview(filename, fileContent, patches)
+            await doReview(filename, fileContent, fileDiff, patches)
           })
         )
       } else {
