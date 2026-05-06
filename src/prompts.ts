@@ -103,7 +103,7 @@ LOCATIONS END -->
 
 Separate multiple issues with \`---\` on its own line.
 
-**Line numbers:** You will receive file content with line number prefixes like \`   85|code here\`. Use THOSE exact line numbers from the numbered file content. Target only the specific lines where the issue lives.
+**Line numbers:** The diff header shows new file line numbers after the + sign (e.g., \`@@ -10,5 +25,8 @@\` means changed lines start at line 25). Count from that starting line to determine the exact line number of each + line. Target only the specific + lines where the issue lives.
 
 **If you find NO issues:** Respond with exactly:
 \`\`\`
@@ -158,32 +158,7 @@ CRITICAL: Only report issues on lines that are NEW or MODIFIED in the diff (line
     let prompt = this.reviewFileDiff
 
     if (inputs.patches) {
-      const fileContent = inputs.fileContent || ''
-      const lines = fileContent.split('\n')
-
-      let startLine = 1
-      let endLine = lines.length
-
-      const patchMatches = inputs.patches.match(/@@ -(\d+),\d+ \+(\d+),\d+ @@/g)
-      if (patchMatches) {
-        const lineNumbers = patchMatches.map(match => {
-          const m = match.match(/@@ -(\d+),\d+ \+(\d+),\d+ @@/)
-          return m ? parseInt(m[2], 10) : 0
-        }).filter(n => n > 0)
-
-        if (lineNumbers.length > 0) {
-          startLine = Math.max(1, Math.min(...lineNumbers) - 10)
-          endLine = Math.min(lines.length, Math.max(...lineNumbers) + 50)
-        }
-      }
-
-      const relevantLines = lines.slice(startLine - 1, endLine)
-      const numberedLines = relevantLines.map((line, index) => {
-        const actualLineNumber = startLine + index
-        return `${actualLineNumber.toString().padStart(6, ' ')}|${line}`
-      }).join('\n')
-
-      prompt += `\n\n## Code to Review\n\n**File:** ${inputs.filename}\n\n**Relevant file content with line numbers (lines ${startLine}-${endLine}):**\n\`\`\`\n${numberedLines}\n\`\`\`\n\n**Diff of changes:**\n\`\`\`diff\n${inputs.patches}\n\`\`\`\n\nUse the line numbers shown in the numbered file content above (e.g., \`   85|\`) to report exact locations. Only report issues on lines that are ADDED or CHANGED (shown with + in the diff). Skip issues in surrounding unchanged code.`
+      prompt += `\n\n## Code to Review\n\n**File:** ${inputs.filename}\n\n**Diff with line numbers:**\n\`\`\`diff\n${inputs.patches}\n\`\`\`\n\nLine numbers are shown in the @@ headers. The new file line numbers are after the + sign (e.g., \`@@ -10,5 +25,8 @@\` means the changed lines start at new file line 25). Only report issues on lines with + prefix (added/changed).`
     }
 
     return prompt
