@@ -234,6 +234,70 @@ ${COMMENT_TAG}`
     }
   }
 
+  async autoResolveThreads(pullNumber: number, changedFiles: string[]) {
+    try {
+      const prNodeId = (
+        await octokit.graphql<{repository: {pullRequest: {id: string}}}>(
+          `query($owner:String!, $repo:String!, $pr:Int!) {
+            repository(owner:$owner, name:$repo) {
+              pullRequest(number:$pr) { id }
+            }
+          }`,
+          {owner: repo.owner, repo: repo.repo, pr: pullNumber}
+        )
+      ).repository.pullRequest.id
+
+      const threads = await octokit.graphql<{
+        repository: {pullRequest: {reviewThreads: {edges: Array<{
+          node: {id: string, isResolved: boolean, path: string, line: number, startLine: number | null,
+            comments: {nodes: Array<{body: string}>}}
+        }>}}}
+      }>(
+        `query($prId:ID!, $first:Int!) {
+          repository(owner:$owner, name:$repo) {
+            pullRequest(number:$pr) {
+              reviewThreads(first:$first) {
+                edges { node {
+                  id isResolved path line startLine
+                  comments(first:1) { nodes { body } }
+                }}
+              }
+            }
+          }
+        }`,
+        {
+          owner: repo.owner,
+          repo: repo.repo,
+          pr: pullNumber,
+          prId: prNodeId,
+          first: 100
+        }
+      )
+
+      let resolved = 0
+      for (const edge of threads.repository.pullRequest.reviewThreads.edges) {
+        const thread = edge.node
+        if (thread.isResolved) continue
+
+        const firstComment = thread.comments.nodes[0]?.body || ''
+        if (!firstComment.includes(COMMENT_TAG) && !firstComment.includes(COMMENT_REPLY_TAG)) continue
+
+        // Check if this file was changed in the current PR
+        if (changedFiles.includes(thread.path)) {
+          await octokit.graphql(
+            `mutation($threadId:ID!) { resolveReviewThread(input:{threadId:$threadId}) { thread { isResolved } } }`,
+            {threadId: thread.id}
+          )
+          resolved++
+          info(`Auto-resolved thread in ${thread.path} line ${thread.line}`)
+        }
+      }
+      info(`Auto-resolved ${resolved} review threads`)
+    } catch (e) {
+      warning(`Failed to auto-resolve threads: ${e}`)
+    }
+  }
+
   async submitReview(pullNumber: number, commitId: string, statusMsg: string) {
     if (this.reviewCommentsBuffer.length === 0) {
       const noIssuesBody = `${COMMENT_GREETING}

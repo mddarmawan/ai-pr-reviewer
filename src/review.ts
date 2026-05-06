@@ -671,6 +671,11 @@ ${
       context.payload.pull_request.head.sha
     )}`
 
+    await commenter.autoResolveThreads(
+      context.payload.pull_request.number,
+      filesAndChanges.map(([filename]) => filename)
+    )
+
     await commenter.submitReview(
       context.payload.pull_request.number,
       commits[commits.length - 1].sha,
