@@ -387,7 +387,7 @@ ${filename}: ${summary}
 `
       }
       const [summarizeResp] = await lightBot.chat(
-        prompts.summarize,
+        prompts.renderSummarize(inputs),
         {}
       )
       if (summarizeResp === '') {
@@ -399,7 +399,7 @@ ${filename}: ${summary}
   }
 
   const [summarizeFinalResponse] = await lightBot.chat(
-    prompts.summarize,
+    prompts.renderSummarize(inputs),
     {}
   )
   if (summarizeFinalResponse === '') {
@@ -408,7 +408,7 @@ ${filename}: ${summary}
 
   if (options.disableReleaseNotes === false) {
     const [releaseNotesResponse] = await lightBot.chat(
-      prompts.summarizeReleaseNotes,
+      prompts.renderSummarizeReleaseNotes(inputs),
       {}
     )
     if (releaseNotesResponse === '') {
@@ -428,7 +428,7 @@ ${filename}: ${summary}
   }
 
   const [summarizeShortResponse] = await lightBot.chat(
-    prompts.summarize,
+    prompts.renderSummarize(inputs),
     {}
   )
   inputs.shortSummary = summarizeShortResponse

@@ -127,10 +127,30 @@ Remember: Report issues at ALL severity levels. Low severity issues are worth fl
       .replace('$file_diff', inputs.fileDiff)
   }
 
-  renderSummarizeChangesets = (inputs: Inputs): string => this.summarize
-  renderSummarize = (inputs: Inputs): string => this.summarize
-  renderSummarizeReleaseNotes = (inputs: Inputs): string => this.summarizeReleaseNotes
-  renderSummarizeShort = (inputs: Inputs): string => this.summarize
+  renderSummarizeChangesets = (inputs: Inputs): string => {
+    if (inputs.rawSummary) {
+      return this.summarize + '\n\n## Changes to Summarize\n\n' + inputs.rawSummary
+    }
+    return this.summarize
+  }
+  renderSummarize = (inputs: Inputs): string => {
+    if (inputs.rawSummary) {
+      return this.summarize + '\n\n## Changes to Summarize\n\n' + inputs.rawSummary
+    }
+    return this.summarize
+  }
+  renderSummarizeReleaseNotes = (inputs: Inputs): string => {
+    if (inputs.rawSummary) {
+      return this.summarizeReleaseNotes + '\n\n## Changes\n\n' + inputs.rawSummary
+    }
+    return this.summarizeReleaseNotes
+  }
+  renderSummarizeShort = (inputs: Inputs): string => {
+    if (inputs.rawSummary) {
+      return this.summarize + '\n\n## Changes to Summarize\n\n' + inputs.rawSummary
+    }
+    return this.summarize
+  }
 
   renderReviewFileDiff = (inputs: Inputs): string => {
     let prompt = this.reviewFileDiff
