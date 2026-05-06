@@ -1,5 +1,5 @@
 name: 'AI PR Reviewer'
-description: 'AI-powered pull request reviewer and summarizer'
+description: 'AI-powered pull request code review'
 inputs:
   debug:
     description: 'Enable debug logging'
@@ -184,9 +184,7 @@ inputs:
   bot_icon:
     description: 'Bot icon'
     required: false
-    default:
-      '<img src="https://avatars.githubusercontent.com/in/347564?s=41"
-      alt="Image description" width="20" height="20">'
+    default: ''
 runs:
   using: 'node20'
   main: 'dist/index.js'
