@@ -347,22 +347,31 @@ ${statusMsg}
       let commentCounter = 0
       for (const comment of this.reviewCommentsBuffer) {
         info(
-          `Creating new review comment for ${comment.path}:${comment.startLine}-${comment.endLine}: ${comment.message}`
+          `Creating new review comment for ${comment.path}:${comment.startLine}-${comment.endLine}`
         )
-        const commentData: any = {
+        // Use minimal params - let octokit handle the structure
+        const baseParams: any = {
           owner: repo.owner,
           repo: repo.repo,
           // eslint-disable-next-line camelcase
           pull_number: pullNumber,
           // eslint-disable-next-line camelcase
           commit_id: commitId,
-          // We need to explicitly set the side to RIGHT and line to ensure GitHub displays the comment correctly
-          side: 'RIGHT',
-          ...generateCommentData(comment)
+          body: comment.message,
+          path: comment.path,
+          line: comment.endLine,
+          side: 'RIGHT'
+        }
+
+        if (comment.startLine !== comment.endLine) {
+          // eslint-disable-next-line camelcase
+          baseParams.start_line = comment.startLine
+          // eslint-disable-next-line camelcase
+          baseParams.start_side = 'RIGHT'
         }
 
         try {
-          await octokit.pulls.createReviewComment(commentData)
+          await octokit.pulls.createReviewComment(baseParams)
         } catch (ee) {
           warning(`Failed to create review comment: ${ee}`)
         }
