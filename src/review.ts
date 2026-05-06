@@ -57,16 +57,13 @@ export const codeReview = async (
     )
   }
 
-  // if the description contains ignore_keyword, skip
   if (inputs.description.includes(ignoreKeyword)) {
     info('Skipped: description contains ignore_keyword')
     return
   }
 
-  // as gpt-3.5-turbo isn't paying attention to system message, add to inputs for now
   inputs.systemMessage = options.systemMessage
 
-  // get SUMMARIZE_TAG message
   const existingSummarizeCmt = await commenter.findCommentWithTag(
     SUMMARIZE_TAG,
     context.payload.pull_request.number
@@ -83,7 +80,6 @@ export const codeReview = async (
   }
 
   const allCommitIds = await commenter.getAllCommitIds()
-  // find highest reviewed commit id
   let highestReviewedCommitId = ''
   if (existingCommitIdsBlock !== '') {
     highestReviewedCommitId = commenter.getHighestReviewedCommitId(
@@ -106,7 +102,6 @@ export const codeReview = async (
     info(`Will review from commit: ${highestReviewedCommitId}`)
   }
 
-  // Fetch the diff between the highest reviewed commit and the latest commit of the PR branch
   const incrementalDiff = await octokit.repos.compareCommits({
     owner: repo.owner,
     repo: repo.repo,
@@ -114,7 +109,6 @@ export const codeReview = async (
     head: context.payload.pull_request.head.sha
   })
 
-  // Fetch the diff between the target branch's base commit and the latest commit of the PR branch
   const targetBranchDiff = await octokit.repos.compareCommits({
     owner: repo.owner,
     repo: repo.repo,
@@ -130,7 +124,6 @@ export const codeReview = async (
     return
   }
 
-  // MODIFIED: Always review full PR diff instead of incremental changes
   const files = targetBranchFiles
 
   if (files.length === 0) {
@@ -138,7 +131,6 @@ export const codeReview = async (
     return
   }
 
-  // skip files if they are filtered out
   const filterSelectedFiles = []
   const filterIgnoredFiles = []
   info(`Processing ${files.length} files from diff`)
@@ -158,20 +150,18 @@ export const codeReview = async (
     return
   }
 
-  const commits = targetBranchDiff.data.commits // MODIFIED: Use full PR diff
+  const commits = targetBranchDiff.data.commits
 
   if (commits.length === 0) {
     warning('Skipped: commits is null')
     return
   }
 
-  // find hunks to review
   const filteredFiles: Array<
     [string, string, string, Array<[number, number, string]>] | null
   > = await Promise.all(
     filterSelectedFiles.map(file =>
       githubConcurrencyLimit(async () => {
-        // retrieve file contents
         let fileContent = ''
         if (context.payload.pull_request == null) {
           warning('Skipped: context.payload.pull_request is null')
@@ -260,7 +250,6 @@ ${hunks.oldHunk}
     )
   )
 
-  // Filter out any null results
   const filesAndChanges = filteredFiles.filter(file => file !== null) as Array<
     [string, string, string, Array<[number, number, string]>]
   >
@@ -308,13 +297,11 @@ ${
 }
 `
 
-  // update the existing comment with in progress status
   const inProgressSummarizeCmt = commenter.addInProgressStatus(
     existingSummarizeCmtBody,
     statusMsg
   )
 
-  // add in progress status to the summarize comment
   await commenter.comment(`${inProgressSummarizeCmt}`, SUMMARIZE_TAG, 'replace')
 
   const summariesFailed: string[] = []
@@ -335,14 +322,14 @@ ${
     ins.filename = filename
     ins.fileDiff = fileDiff
 
-    // render prompt based on inputs so far
     const summarizePrompt = prompts.renderSummarizeFileDiff(ins)
     const tokens = getTokenCount(summarizePrompt)
     if (tokens > options.lightTokenLimits.requestTokens) {
       info(`summarize: diff tokens exceeds limit, skip ${filename}`)
       summariesFailed.push(`${filename} (diff tokens exceeds limit)`)
       return null
-    }    try {
+    }
+    try {
       const [summarizeResp] = await lightBot.chat(summarizePrompt, {})
 
       if (summarizeResp === '') {
@@ -351,9 +338,6 @@ ${
         return null
       } else {
         if (options.reviewSimpleChanges === false) {
-          // parse the comment to look for triage classification
-          // Format is : [TRIAGE]: <NEEDS_REVIEW or APPROVED>
-          // if the change needs review return true, else false
           const triageRegex = /\[TRIAGE\]:\s*(NEEDS_REVIEW|APPROVED)/
           const triageMatch = summarizeResp.match(triageRegex)
 
@@ -361,7 +345,6 @@ ${
             const triage = triageMatch[1]
             const needsReview = triage === 'NEEDS_REVIEW'
 
-            // remove this line from the comment
             const summary = summarizeResp.replace(triageRegex, '').trim()
             info(`filename: ${filename}, triage: ${triage}`)
             return [filename, summary, needsReview]
@@ -396,8 +379,6 @@ ${
 
   if (summaries.length > 0) {
     const batchSize = 10
-    // join summaries into one in the batches of batchSize
-    // and ask the bot to summarize the summaries
     for (let i = 0; i < summaries.length; i += batchSize) {
       const summariesBatch = summaries.slice(i, i + batchSize)
       for (const [filename, summary] of summariesBatch) {
@@ -405,7 +386,6 @@ ${
 ${filename}: ${summary}
 `
       }
-      // ask chatgpt to summarize the summaries
       const [summarizeResp] = await lightBot.chat(
         prompts.summarize,
         {}
@@ -418,7 +398,6 @@ ${filename}: ${summary}
     }
   }
 
-  // final summary
   const [summarizeFinalResponse] = await lightBot.chat(
     prompts.summarize,
     {}
@@ -428,7 +407,6 @@ ${filename}: ${summary}
   }
 
   if (options.disableReleaseNotes === false) {
-    // final release notes
     const [releaseNotesResponse] = await lightBot.chat(
       prompts.summarizeReleaseNotes,
       {}
@@ -436,7 +414,7 @@ ${filename}: ${summary}
     if (releaseNotesResponse === '') {
       info('release notes: nothing obtained from openai')
     } else {
-      let message = '### Summary by CodeRabbit\n\n'
+      let message = '### Summary\n\n'
       message += releaseNotesResponse
       try {
         await commenter.updateDescription(
@@ -449,7 +427,6 @@ ${filename}: ${summary}
     }
   }
 
-  // generate a short summary as well
   const [summarizeShortResponse] = await lightBot.chat(
     prompts.summarize,
     {}
@@ -476,37 +453,6 @@ If you like this project, please support us by purchasing the [Pro version](http
 </details>
 `
 
-  statusMsg += `
-${
-  skippedFiles.length > 0
-    ? `
-<details>
-<summary>Files not processed due to max files limit (${
-        skippedFiles.length
-      })</summary>
-
-* ${skippedFiles.join('\n* ')}
-
-</details>
-`
-    : ''
-}
-${
-  summariesFailed.length > 0
-    ? `
-<details>
-<summary>Files not summarized due to errors (${
-        summariesFailed.length
-      })</summary>
-
-* ${summariesFailed.join('\n* ')}
-
-</details>
-`
-    : ''
-}
-`
-
   if (!options.disableReview) {
     const filesAndChangesReview = filesAndChanges.filter(([filename]) => {
       const needsReview =
@@ -525,24 +471,23 @@ ${
       )
       .map(([filename]) => filename)
 
-    // failed reviews array
     const reviewsFailed: string[] = []
-    let lgtmCount = 0
     let reviewCount = 0
+    let highCount = 0
+    let mediumCount = 0
+    let lowCount = 0
+
     const doReview = async (
       filename: string,
       fileContent: string,
       patches: Array<[number, number, string]>
     ): Promise<void> => {
       info(`reviewing ${filename}`)
-      // make a copy of inputs
       const ins: Inputs = inputs.clone()
       ins.filename = filename
       ins.fileContent = fileContent
 
-      // calculate tokens based on inputs so far
       let tokens = getTokenCount(prompts.renderReviewFileDiff(ins))
-      // loop to calculate total patch tokens
       let patchesToPack = 0
       for (const [, , patch] of patches) {
         const patchTokens = getTokenCount(patch)
@@ -562,7 +507,6 @@ ${
           warning('No pull request found, skipping.')
           continue
         }
-        // see if we can pack more patches into this request
         if (patchesPacked >= patchesToPack) {
           info(
             `unable to pack more patches into this request, packed: ${patchesPacked}, total patches: ${patches.length}, skipping.`
@@ -585,7 +529,7 @@ ${
           )
 
           if (allChains.length > 0) {
-            info(`Found comment chains: ${allChains} for ${filename}`)
+            info(`Found comment chains for ${filename}`)
             commentChain = allChains
           }
         } catch (e: any) {
@@ -595,7 +539,6 @@ ${
             }`
           )
         }
-        // try packing comment_chain into this request
         const commentChainTokens = getTokenCount(commentChain)
         if (
           tokens + commentChainTokens >
@@ -624,7 +567,6 @@ ${commentChain}
       }
 
       if (patchesPacked > 0) {
-        // perform review - use heavy model for better issue detection and line targeting
         try {
           const [response] = await heavyBot.chat(
             prompts.renderReviewFileDiff(ins),
@@ -635,22 +577,10 @@ ${commentChain}
             reviewsFailed.push(`${filename} (no response)`)
             return
           }
-          // parse review
+
           const reviews = parseReview(response, patches, options.debug, filename)
 
-          // Use reviews directly - single stage approach
-          const refinedReviews = reviews
-
-          for (const review of refinedReviews) {
-            // check for LGTM
-            if (
-              !options.reviewCommentLGTM &&
-              (review.comment.includes('LGTM') ||
-                review.comment.includes('looks good to me'))
-            ) {
-              lgtmCount += 1
-              continue
-            }
+          for (const review of reviews) {
             if (context.payload.pull_request == null) {
               warning('No pull request found, skipping.')
               continue
@@ -658,11 +588,15 @@ ${commentChain}
 
             try {
               reviewCount += 1
+              if (review.severity === 'High') highCount += 1
+              else if (review.severity === 'Medium') mediumCount += 1
+              else lowCount += 1
+
               await commenter.bufferReviewComment(
                 filename,
                 review.startLine,
                 review.endLine,
-                `${review.comment}`
+                review.comment
               )
             } catch (e: any) {
               reviewsFailed.push(`${filename} comment failed (${e as string})`)
@@ -722,10 +656,12 @@ ${
     : ''
 }
 <details>
-<summary>Review comments generated (${reviewCount + lgtmCount})</summary>
+<summary>Review details</summary>
 
-* Review: ${reviewCount}
-* LGTM: ${lgtmCount}
+* Issues found: ${reviewCount}
+* High: ${highCount}
+* Medium: ${mediumCount}
+* Low: ${lowCount}
 
 </details>
 
@@ -747,13 +683,11 @@ ${
 
 </details>
 `
-    // add existing_comment_ids_block with latest head sha
     summarizeComment += `\n${commenter.addReviewedCommitId(
       existingCommitIdsBlock,
       context.payload.pull_request.head.sha
     )}`
 
-    // post the review
     await commenter.submitReview(
       context.payload.pull_request.number,
       commits[commits.length - 1].sha,
@@ -761,7 +695,6 @@ ${
     )
   }
 
-  // post the final summary comment
   await commenter.comment(`${summarizeComment}`, SUMMARIZE_TAG, 'replace')
 }
 
@@ -830,14 +763,12 @@ const parsePatch = (
 
   let newLine = hunkInfo.newHunk.startLine
 
-  const lines = patch.split('\n').slice(1) // Skip the @@ line
+  const lines = patch.split('\n').slice(1)
 
-  // Remove the last line if it's empty
   if (lines[lines.length - 1] === '') {
     lines.pop()
   }
 
-  // Skip annotations for the first 3 and last 3 lines
   const skipStart = 3
   const skipEnd = 3
 
@@ -853,7 +784,6 @@ const parsePatch = (
       newHunkLines.push(line.substring(1))
       newLine++
     } else {
-      // context line
       oldHunkLines.push(`${line}`)
       if (
         removalOnly ||
@@ -877,6 +807,24 @@ interface Review {
   startLine: number
   endLine: number
   comment: string
+  severity: string
+}
+
+function parseReview(
+  response: string,
+  patches: Array<[number, number, string]>,
+  debug = false,
+  filename = 'unknown'
+): Review[] {
+  const trimmed = response.trim()
+
+  // Detect NO_ISSUES_FOUND
+  if (trimmed === 'NO_ISSUES_FOUND' || trimmed.includes('NO_ISSUES_FOUND')) {
+    info(`No issues found for ${filename}`)
+    return []
+  }
+
+  return parseStructuredReview(trimmed, patches, debug, filename)
 }
 
 function parseStructuredReview(
@@ -887,21 +835,44 @@ function parseStructuredReview(
 ): Review[] {
   const reviews: Review[] = []
 
-  // Split response by ### headers to find individual issues
-  const issueBlocks = response.split(/^### /m).filter(block => block.trim())
+  // Split by ### headers or --- separators to find individual issues
+  const blocks = response.split(/^---$/m).filter(block => block.trim())
 
-  // Try to match issues to patches by analyzing content
-  for (const block of issueBlocks) {
+  for (const block of blocks) {
     const lines = block.split('\n')
 
-    // Extract title (first line)
-    const title = lines[0].trim()
-    if (!title) continue
+    // Extract title from ### line
+    let title = ''
+    let severity = 'Low'
 
-    // Find description between <!-- DESCRIPTION START --> and <!-- DESCRIPTION END -->
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim()
+
+      if (line.startsWith('### ') && !title) {
+        title = line.replace(/^### /, '').trim()
+        continue
+      }
+
+      // Detect severity
+      if (line.startsWith('**') && line.includes('Severity')) {
+        if (line.toLowerCase().includes('high')) severity = 'High'
+        else if (line.toLowerCase().includes('medium')) severity = 'Medium'
+        else severity = 'Low'
+        continue
+      }
+
+      // Skip markdown artifacts from code blocks
+      if (line === '```') continue
+    }
+
+    if (!title && debug) {
+      info(`Skipping block without title in ${filename}`)
+      continue
+    }
+
+    // Extract description
     let description = ''
     let inDescription = false
-
     for (const line of lines) {
       if (line.includes('<!-- DESCRIPTION START -->')) {
         inDescription = true
@@ -911,14 +882,13 @@ function parseStructuredReview(
         inDescription = false
         continue
       }
-
       if (inDescription) {
         description += line + '\n'
       }
     }
 
-    // If description is empty, skip this issue
-    if (description.trim() === '') {
+    const descTrimmed = description.trim()
+    if (!descTrimmed) {
       if (debug) {
         info(`Skipping issue with empty description: ${title}`)
       }
@@ -929,440 +899,68 @@ function parseStructuredReview(
     let extractedStart: number | null = null
     let extractedEnd: number | null = null
 
-    for (let i = 0; i < lines.length; i += 1) {
+    for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
       if (line.includes('<!-- LOCATIONS START')) {
         const nextLine = lines[i + 1]
-        if (debug) {
-          info(`Looking for line numbers in: "${nextLine}"`)
-        }
         if (nextLine && nextLine.includes('#')) {
           const locationMatch = nextLine.match(/#L(\d+)-L(\d+)/)
           if (locationMatch) {
             extractedStart = parseInt(locationMatch[1], 10)
             extractedEnd = parseInt(locationMatch[2], 10)
-            if (debug) {
-              info(`Extracted line numbers: ${extractedStart}-${extractedEnd}`)
-            }
-          } else if (debug) {
-            info(`No match found for line: "${nextLine}"`)
           }
         }
         break
       }
     }
 
-    // Use the AI's line numbers directly - let the AI do all the work
-    let [startLine, endLine] = [patches[0][0], patches[0][1]]
+    // Determine line numbers: use AI-provided if valid, otherwise use patch bounds
+    let startLine = patches[0][0]
+    let endLine = patches[0][1]
 
-    // If AI provided specific line numbers, use them (but validate they're within patch bounds)
     if (extractedStart != null && extractedEnd != null) {
-      if (debug) {
-        info(`AI provided line numbers: ${extractedStart}-${extractedEnd}`)
-        info(`Available patches: ${patches.map(([s, e]) => `${s}-${e}`).join(', ')}`)
-      }
-      // Find which patch contains these line numbers
+      // Validate the line numbers are within a known patch
+      let foundPatch = false
       for (const [pStart, pEnd] of patches) {
         if (extractedStart >= pStart && extractedEnd <= pEnd) {
           startLine = extractedStart
           endLine = extractedEnd
+          foundPatch = true
           if (debug) {
             info(`Using AI line numbers: ${startLine}-${endLine} (within patch ${pStart}-${pEnd})`)
           }
           break
         }
       }
-      if (debug && startLine === patches[0][0]) {
-        info(`Line numbers ${extractedStart}-${extractedEnd} not found in any patch, using patch bounds`)
+      if (!foundPatch && debug) {
+        info(`Line numbers ${extractedStart}-${extractedEnd} outside all patches, using patch bounds`)
       }
     }
 
-    // Create the comment with the determined line numbers
-    // Extract filename from the LOCATIONS block if available
-    let commentFilename = filename
-    for (let i = 0; i < lines.length; i++) {
-        if (lines[i].includes('<!-- LOCATIONS START')) {
-            if (i+1 < lines.length && lines[i+1].includes('#')) {
-                const filenameMatch = lines[i+1].match(/^(.+?)#L\d+-L\d+/)
-                if (filenameMatch) {
-                    commentFilename = filenameMatch[1]
-                }
-            }
-            break
-        }
-    }
-
+    // Build the comment in Cursor format
     const comment = `### ${title}
 
+**${severity} Severity**
+
 <!-- DESCRIPTION START -->
-${description.trim()}
+${descTrimmed}
 <!-- DESCRIPTION END -->
 
 <!-- LOCATIONS START
-${commentFilename}#L${startLine}-L${endLine}
+${filename}#L${startLine}-L${endLine}
 LOCATIONS END -->`
 
     reviews.push({
       startLine,
       endLine,
-      comment
+      comment,
+      severity
     })
 
     if (debug) {
-      info(`Parsed structured review: ${title} at lines ${startLine}-${endLine}`)
-      info(`Issue text: ${(title + ' ' + description).toLowerCase()}`)
-      info(`Using patch bounds: ${patches[0][0]}-${patches[0][1]}`)
+      info(`Parsed issue: "${title}" [${severity}] at ${startLine}-${endLine}`)
     }
   }
-
-  return reviews
-}
-
-// Simple fallback - let AI handle all detection and line targeting
-function choosePreciseLines(
-  issueTextLower: string,
-  patchContent: string,
-  patchStartLine: number
-): [number, number] | null {
-  // The AI should provide precise line numbers in its response
-  // This is just a fallback that returns null to use patch bounds
-  return null
-}
-
-async function refineLineTargeting(
-  bot: Bot,
-  review: Review,
-  patchContent: string,
-  debug = false
-): Promise<Review> {
-  try {
-    // Extract the issue type and description from the comment
-    const issueMatch = review.comment.match(/###\s*([^:]+):\s*(.+)/)
-    const issueCategory = issueMatch ? issueMatch[1].trim() : 'Code Review'
-    const issueDescription = issueMatch ? issueMatch[2].trim() : review.comment
-
-    // Enhanced generic prompt for any type of code review
-    const prompt = `You are a code reviewer analyzing a git patch. Your task is to identify the EXACT line number(s) where the specific issue mentioned in the review comment occurs.
-
-PATCH CONTENT:
-\`\`\`
-${patchContent}
-\`\`\`
-
-REVIEW COMMENT:
-Category: ${issueCategory}
-Description: ${issueDescription}
-
-INSTRUCTIONS:
-1. Analyze the patch content to find the specific line(s) where the issue described in the review comment occurs.
-2. Look for code that directly relates to the issue mentioned in the review comment.
-3. Consider the context of the issue:
-   - If it's about a specific function or method, find where that function is defined or called
-   - If it's about a variable or parameter, find where that variable is declared or used
-   - If it's about code structure or logic, find the relevant control flow or logic blocks
-   - If it's about performance, find the potentially inefficient operations
-   - If it's about style or formatting, find the lines with style issues
-   - If it's about error handling, find where errors might occur or where handling is missing
-4. Return ONLY the line number(s) where the issue is most relevant.
-5. If multiple consecutive lines contain the issue, return the range as "start,end".
-6. Be precise and specific - target only the lines that directly relate to the issue.
-
-RESPONSE FORMAT:
-- For a single line: Just the number (e.g., "42")
-- For multiple consecutive lines: "start,end" (e.g., "42,45")
-- Do not include any explanation or other text.
-
-Example responses:
-"42"
-"42,45"
-
-Now, identify the line number(s) for: ${issueCategory}: ${issueDescription}`
-
-    const [response] = await bot.chat(prompt, {})
-
-    if (debug) {
-      info(`AI response for line targeting: ${response}`)
-    }
-
-    // Try to parse the response to extract line numbers
-    const refinedReview = parseLineResponse(response, review, patchContent, debug)
-
-    if (refinedReview) {
-      return refinedReview
-    }
-
-    // If parsing failed, try a more specific context-aware prompt
-    const contextPrompt = `Based on this review comment: "${issueCategory}: ${issueDescription}"
-
-Find the MOST RELEVANT line number in this code patch:
-
-\`\`\`
-${patchContent}
-\`\`\`
-
-Return only the single most relevant line number as a number.`
-
-    const [contextResponse] = await bot.chat(contextPrompt, {})
-
-    if (debug) {
-      info(`Context-aware AI response: ${contextResponse}`)
-    }
-
-    const contextReview = parseLineResponse(contextResponse, review, patchContent, debug)
-
-    return contextReview || review
-  } catch (error) {
-    if (debug) {
-      info(`Line refinement error: ${error}, using original range: ${review.startLine}-${review.endLine}`)
-    }
-    return review
-  }
-}
-
-// Enhanced helper function to parse line response and validate
-function parseLineResponse(
-  response: string,
-  review: Review,
-  patchContent: string,
-  debug: boolean
-): Review | null {
-  if (!response || typeof response !== 'string') return null
-
-  // Clean the response - remove any non-numeric characters except commas and digits
-  const cleanResponse = response.replace(/[^\d,]/g, '').trim()
-  if (!cleanResponse) return null
-
-  // Split the patch into lines for validation
-  const patchLines = patchContent.split('\n')
-  const totalLines = patchLines.length
-
-  // Try to parse single line number first
-  const singleLineMatch = cleanResponse.match(/^(\d+)$/)
-  if (singleLineMatch) {
-    const lineNum = parseInt(singleLineMatch[1], 10)
-
-    // Validate the line number
-    if (!isNaN(lineNum) &&
-        lineNum >= 1 &&
-        lineNum <= totalLines &&
-        lineNum >= review.startLine &&
-        lineNum <= review.endLine) {
-
-      if (debug) {
-        info(`Refined to single line: ${review.startLine}-${review.endLine} → ${lineNum}-${lineNum}`)
-      }
-
-      return {
-        ...review,
-        startLine: lineNum,
-        endLine: lineNum
-      }
-    } else if (debug) {
-      info(`Line ${lineNum} out of bounds (patch: 1-${totalLines}, review: ${review.startLine}-${review.endLine})`)
-    }
-  }
-
-  // Try to parse range "start,end"
-  const rangeMatch = cleanResponse.match(/^(\d+),(\d+)$/)
-  if (rangeMatch) {
-    const start = parseInt(rangeMatch[1], 10)
-    const end = parseInt(rangeMatch[2], 10)
-
-    // Validate the range
-    if (!isNaN(start) && !isNaN(end) &&
-        start <= end &&
-        start >= 1 &&
-        end <= totalLines &&
-        start >= review.startLine &&
-        end <= review.endLine) {
-
-      if (debug) {
-        info(`Refined to range: ${review.startLine}-${review.endLine} → ${start}-${end}`)
-      }
-
-      return {
-        ...review,
-        startLine: start,
-        endLine: end
-      }
-    } else if (debug) {
-      info(`Range ${start}-${end} out of bounds (patch: 1-${totalLines}, review: ${review.startLine}-${review.endLine})`)
-    }
-  }
-
-  if (debug) {
-    info(`Failed to parse response: "${response}" (cleaned: "${cleanResponse}")`)
-  }
-
-  return null
-}
-
-function parseReview(
-  response: string,
-  patches: Array<[number, number, string]>,
-  debug = false,
-  filename = 'unknown'
-): Review[] {
-  const reviews: Review[] = []
-
-  response = sanitizeResponse(response.trim())
-
-  // Check if AI responded with "No issues found" - this means there are actually issues!
-  // The AI is being too conservative and not detecting obvious security vulnerabilities
-  if (response.toLowerCase().includes('no issues found') ||
-      response.toLowerCase().includes('no issues') ||
-      response.toLowerCase().includes('looks good') ||
-      response.toLowerCase().includes('lgtm')) {
-    info('AI responded with "no issues found" - this may indicate the AI is not detecting obvious security vulnerabilities')
-    // Don't return empty array - let the AI reviewer show the "no issues found" message
-    return []
-  }
-
-  // Check if response is in the new structured format
-  if (response.includes('### ') && response.includes('<!-- DESCRIPTION START -->')) {
-    return parseStructuredReview(response, patches, debug, filename)
-  }
-
-  // Fallback to old format parsing
-  const lines = response.split('\n')
-  const lineNumberRangeRegex = /(?:^|\s)(\d+)-(\d+):\s*$/
-  const commentSeparator = '---'
-
-  let currentStartLine: number | null = null
-  let currentEndLine: number | null = null
-  let currentComment = ''
-  function storeReview(): void {
-    if (currentStartLine !== null && currentEndLine !== null) {
-      // Use the comment as-is from the AI (it should already be in structured format)
-      const review: Review = {
-        startLine: currentStartLine,
-        endLine: currentEndLine,
-        comment: currentComment.trim()
-      }
-
-      let withinPatch = false
-      let bestPatchStartLine = -1
-      let bestPatchEndLine = -1
-      let maxIntersection = 0
-
-      for (const [startLine, endLine] of patches) {
-        const intersectionStart = Math.max(review.startLine, startLine)
-        const intersectionEnd = Math.min(review.endLine, endLine)
-        const intersectionLength = Math.max(
-          0,
-          intersectionEnd - intersectionStart + 1
-        )
-
-        if (intersectionLength > maxIntersection) {
-          maxIntersection = intersectionLength
-          bestPatchStartLine = startLine
-          bestPatchEndLine = endLine
-          withinPatch =
-            intersectionLength === review.endLine - review.startLine + 1
-        }
-
-        if (withinPatch) break
-      }
-
-      if (!withinPatch) {
-        if (bestPatchStartLine !== -1 && bestPatchEndLine !== -1) {
-          review.comment = `> Note: This review was outside of the patch, so it was mapped to the patch with the greatest overlap. Original lines [${review.startLine}-${review.endLine}]
-
-${review.comment}`
-          review.startLine = bestPatchStartLine
-          review.endLine = bestPatchEndLine
-        } else {
-          review.comment = `> Note: This review was outside of the patch, but no patch was found that overlapped with it. Original lines [${review.startLine}-${review.endLine}]
-
-${review.comment}`
-          review.startLine = patches[0][0]
-          review.endLine = patches[0][1]
-        }
-      }
-
-      reviews.push(review)
-
-      info(
-        `Stored comment for line range ${currentStartLine}-${currentEndLine}: ${currentComment.trim()}`
-      )
-    }
-  }
-
-  function sanitizeCodeBlock(comment: string, codeBlockLabel: string): string {
-    const codeBlockStart = `\`\`\`${codeBlockLabel}`
-    const codeBlockEnd = '```'
-    const lineNumberRegex = /^ *(\d+): /gm
-
-    let codeBlockStartIndex = comment.indexOf(codeBlockStart)
-
-    while (codeBlockStartIndex !== -1) {
-      const codeBlockEndIndex = comment.indexOf(
-        codeBlockEnd,
-        codeBlockStartIndex + codeBlockStart.length
-      )
-
-      if (codeBlockEndIndex === -1) break
-
-      const codeBlock = comment.substring(
-        codeBlockStartIndex + codeBlockStart.length,
-        codeBlockEndIndex
-      )
-      const sanitizedBlock = codeBlock.replace(lineNumberRegex, '')
-
-      comment =
-        comment.slice(0, codeBlockStartIndex + codeBlockStart.length) +
-        sanitizedBlock +
-        comment.slice(codeBlockEndIndex)
-
-      codeBlockStartIndex = comment.indexOf(
-        codeBlockStart,
-        codeBlockStartIndex +
-          codeBlockStart.length +
-          sanitizedBlock.length +
-          codeBlockEnd.length
-      )
-    }
-
-    return comment
-  }
-
-  function sanitizeResponse(comment: string): string {
-    comment = sanitizeCodeBlock(comment, 'suggestion')
-    comment = sanitizeCodeBlock(comment, 'diff')
-    return comment
-  }
-
-  for (const line of lines) {
-    const lineNumberRangeMatch = line.match(lineNumberRangeRegex)
-
-    if (lineNumberRangeMatch != null) {
-      storeReview()
-      currentStartLine = parseInt(lineNumberRangeMatch[1], 10)
-      currentEndLine = parseInt(lineNumberRangeMatch[2], 10)
-      currentComment = ''
-      if (debug) {
-        info(`Found line number range: ${currentStartLine}-${currentEndLine}`)
-      }
-      continue
-    }
-
-    if (line.trim() === commentSeparator) {
-      storeReview()
-      currentStartLine = null
-      currentEndLine = null
-      currentComment = ''
-      if (debug) {
-        info('Found comment separator')
-      }
-      continue
-    }
-
-    if (currentStartLine !== null && currentEndLine !== null) {
-      currentComment += `${line}\n`
-    }
-  }
-
-  storeReview()
 
   return reviews
 }
