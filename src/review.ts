@@ -904,10 +904,11 @@ function parseStructuredReview(
       if (line.includes('<!-- LOCATIONS START')) {
         const nextLine = lines[i + 1]
         if (nextLine && nextLine.includes('#')) {
-          const locationMatch = nextLine.match(/#L(\d+)-L(\d+)/)
+          // Match both #Lstart-Lend and #Lline (single line)
+          const locationMatch = nextLine.match(/#L(\d+)(?:-L(\d+))?/)
           if (locationMatch) {
             extractedStart = parseInt(locationMatch[1], 10)
-            extractedEnd = parseInt(locationMatch[2], 10)
+            extractedEnd = locationMatch[2] ? parseInt(locationMatch[2], 10) : extractedStart
           }
         }
         break
