@@ -53,7 +53,7 @@ Please analyze the above code changes and provide your assessment.`
 
 ## What to Report
 
-**High Severity** — must fix before merge:
+![High](https://img.shields.io/badge/High-red) — must fix before merge:
 - Hardcoded secrets (passwords, API keys, tokens, connection strings)
 - Authentication/authorization bypasses or missing checks
 - SQL injection, XSS, command injection
@@ -61,14 +61,14 @@ Please analyze the above code changes and provide your assessment.`
 - Cryptographic weaknesses (weak hashing, insecure random)
 - Missing rate limiting on auth endpoints
 
-**Medium Severity** — should fix:
+![Medium](https://img.shields.io/badge/Medium-orange) — should fix:
 - Weak input validation (missing edge cases, bypassable regex)
 - Missing error handling (uncaught exceptions, silent failures)
 - Information disclosure (stack traces in production, debug endpoints)
 - Logic errors (incorrect conditions, off-by-one, race conditions)
 - N+1 queries, missing pagination
 
-**Low Severity** — nice to fix:
+![Low](https://img.shields.io/badge/Low-blue) — nice to fix:
 - Misleading variable/function names
 - Missing null/undefined guards
 - Inefficient patterns (unnecessary loops, redundant calls)
@@ -90,7 +90,7 @@ Report each issue using EXACTLY this format:
 \`\`\`
 ### Brief, descriptive title explaining the actual impact
 
-**High Severity** (or Medium Severity, or Low Severity)
+![High](https://img.shields.io/badge/High-red) (or ![Medium](https://img.shields.io/badge/Medium-orange), or ![Low](https://img.shields.io/badge/Low-blue))
 
 <!-- DESCRIPTION START -->
 Clear explanation of what the issue is and why it matters. Include the concrete impact or risk.

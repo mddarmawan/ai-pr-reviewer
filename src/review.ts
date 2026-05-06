@@ -841,12 +841,13 @@ function parseStructuredReview(
         continue
       }
 
-      // Detect severity
-      if (line.startsWith('**') && line.includes('Severity')) {
-        if (line.toLowerCase().includes('high')) severity = 'High'
-        else if (line.toLowerCase().includes('medium')) severity = 'Medium'
-        else severity = 'Low'
-        continue
+      // Detect severity from badge or text format
+      if (line.includes('High') || line.includes('high')) {
+        severity = 'High'
+      } else if (line.includes('Medium') || line.includes('medium')) {
+        severity = 'Medium'
+      } else if (line.includes('Low') || line.includes('low')) {
+        severity = 'Low'
       }
 
       // Skip markdown artifacts from code blocks
@@ -926,10 +927,11 @@ function parseStructuredReview(
       }
     }
 
-    // Build the comment in Cursor format
+    // Build the comment with severity badge
+    const badgeColor = severity === 'High' ? 'red' : severity === 'Medium' ? 'orange' : 'blue'
     const comment = `### ${title}
 
-**${severity} Severity**
+![${severity}](https://img.shields.io/badge/${severity}-${badgeColor})
 
 <!-- DESCRIPTION START -->
 ${descTrimmed}
