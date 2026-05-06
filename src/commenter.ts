@@ -257,7 +257,7 @@ ${COMMENT_TAG}`
       const threadsData = threadsResp.data as any
       const edges = threadsData?.data?.repository?.pullRequest?.reviewThreads?.edges || []
 
-      let resolved = 0
+      let resolvedCount = 0
       for (const edge of edges) {
         const thread = edge.node
         if (thread.isResolved) continue
@@ -266,15 +266,20 @@ ${COMMENT_TAG}`
         if (!firstComment.includes(COMMENT_TAG) && !firstComment.includes(COMMENT_REPLY_TAG)) continue
 
         if (changedFiles.includes(thread.path) || thread.isOutdated) {
-          await octokit.request('POST /graphql', {
+          const resolveResp = await octokit.request('POST /graphql', {
             query: `mutation($id:ID!) { resolveReviewThread(input:{threadId:$id}) { thread { isResolved } } }`,
             variables: {id: thread.id}
           })
-          resolved++
-          info(`Auto-resolved thread in ${thread.path} line ${thread.line}`)
+          const isResolved = resolveResp.data?.data?.resolveReviewThread?.thread?.isResolved
+          if (isResolved) {
+            resolvedCount++
+            info(`Auto-resolved thread in ${thread.path} line ${thread.line}`)
+          } else {
+            warning(`Failed to resolve thread ${thread.id}: ${JSON.stringify(resolveResp.data?.errors || resolveResp.data)}`)
+          }
         }
       }
-      info(`Auto-resolved ${resolved} review threads`)
+      info(`Auto-resolved ${resolvedCount} review threads`)
     } catch (e) {
       warning(`Failed to auto-resolve threads: ${e}`)
     }
