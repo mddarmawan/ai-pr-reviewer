@@ -103,7 +103,7 @@ LOCATIONS END -->
 
 Separate multiple issues with \`---\` on its own line.
 
-**Line numbers:** The diff header shows new file line numbers after the + sign (e.g., \`@@ -10,5 +25,8 @@\` means changed lines start at line 25). Count from that starting line to determine the exact line number of each + line. Target only the specific + lines where the issue lives.
+**Line numbers:** Each line in the diff is prefixed with its exact line number (e.g., \`+  143|code\`). Use these numbers directly. Target only the specific + lines where the issue lives.
 
 **If you find NO issues:** Respond with exactly:
 \`\`\`
@@ -158,10 +158,39 @@ CRITICAL: Only report issues on lines that are NEW or MODIFIED in the diff (line
     let prompt = this.reviewFileDiff
 
     if (inputs.patches) {
-      prompt += `\n\n## Code to Review\n\n**File:** ${inputs.filename}\n\n**Diff with line numbers:**\n\`\`\`diff\n${inputs.patches}\n\`\`\`\n\nLine numbers are shown in the @@ headers. The new file line numbers are after the + sign (e.g., \`@@ -10,5 +25,8 @@\` means the changed lines start at new file line 25). Only report issues on lines with + prefix (added/changed).`
+      // Render diff with explicit line numbers on each line
+      const numberedPatch = this.renderNumberedPatch(inputs.patches)
+      prompt += `\n\n## Code to Review\n\n**File:** ${inputs.filename}\n\n**Diff — each line prefixed with its exact line number:**\n\`\`\`\n${numberedPatch}\n\`\`\`\n\nOnly report issues on + lines (added/changed). Use the line numbers shown.`
     }
 
     return prompt
+  }
+
+  private renderNumberedPatch(patches: string): string {
+    const lines: string[] = []
+    let currentLine = 0
+
+    for (const line of patches.split('\n')) {
+      const headerMatch = line.match(/^@@ -(\d+),\d+ \+(\d+),\d+ @@/)
+      if (headerMatch) {
+        currentLine = parseInt(headerMatch[2], 10) - 1
+        lines.push(line)
+        continue
+      }
+      if (line.startsWith('-')) {
+        // Removed line — show old line number
+        lines.push(`- ${String(currentLine + 1).padStart(5)}|${line.substring(1)}`)
+      } else if (line.startsWith('+')) {
+        currentLine++
+        lines.push(`+ ${String(currentLine).padStart(5)}|${line.substring(1)}`)
+      } else {
+        // Context line
+        currentLine++
+        lines.push(`  ${String(currentLine).padStart(5)}|${line}`)
+      }
+    }
+
+    return lines.join('\n')
   }
 
   renderComment = (inputs: Inputs): string => {
