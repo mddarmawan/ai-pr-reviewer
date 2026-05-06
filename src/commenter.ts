@@ -258,7 +258,76 @@ ${COMMENT_TAG}`
       return
     }
 
-    // Post findings as a single issue comment with all issues formatted
+    // Build inline comment data for review API
+    const reviewComments = this.reviewCommentsBuffer.map(comment => {
+      const data: any = {
+        path: comment.path,
+        body: comment.message,
+        line: comment.endLine,
+        side: 'RIGHT'
+      }
+      if (comment.startLine !== comment.endLine) {
+        // eslint-disable-next-line camelcase
+        data.start_line = comment.startLine
+        // eslint-disable-next-line camelcase
+        data.start_side = 'RIGHT'
+      }
+      return data
+    })
+
+    // Try creating a proper review with inline comments
+    try {
+      const review = await octokit.pulls.createReview({
+        owner: repo.owner,
+        repo: repo.repo,
+        // eslint-disable-next-line camelcase
+        pull_number: pullNumber,
+        // eslint-disable-next-line camelcase
+        commit_id: commitId,
+        event: 'COMMENT',
+        comments: reviewComments
+      })
+      info(`Created review for PR #${pullNumber}, review id: ${review.data.id}, comments: ${reviewComments.length}`)
+      return
+    } catch (reviewErr) {
+      warning(`Failed to create review: ${reviewErr}. Trying individual comments.`)
+
+      // Try individual review comments
+      let successCount = 0
+      for (const comment of reviewComments) {
+        try {
+          await octokit.pulls.createReviewComment({
+            owner: repo.owner,
+            repo: repo.repo,
+            // eslint-disable-next-line camelcase
+            pull_number: pullNumber,
+            // eslint-disable-next-line camelcase
+            commit_id: commitId,
+            body: comment.body,
+            path: comment.path,
+            line: comment.line,
+            side: 'RIGHT',
+            // eslint-disable-next-line camelcase
+            start_line: comment.start_line,
+            // eslint-disable-next-line camelcase
+            start_side: comment.start_side
+          })
+          successCount++
+        } catch (ee) {
+          warning(`Failed individual review comment: ${ee}`)
+        }
+      }
+      info(`Posted ${successCount}/${reviewComments.length} individual review comments`)
+
+      // If all individual comments failed too, fall back to issue comment
+      if (successCount === 0) {
+        warning('All review comment APIs failed, falling back to issue comment.')
+        await this.postFindingsAsIssueComment(pullNumber, statusMsg)
+      }
+    }
+  }
+
+  private async postFindingsAsIssueComment(pullNumber: number, statusMsg: string) {
     let findingsBlock = ''
     for (const comment of this.reviewCommentsBuffer) {
       findingsBlock += `\n${comment.message}\n\n---\n`
@@ -282,9 +351,9 @@ ${COMMENT_TAG}`
         issue_number: pullNumber,
         body
       })
-      info(`Posted review findings as issue comment for PR #${pullNumber}, total issues: ${this.reviewCommentsBuffer.length}`)
+      info(`Posted review findings as issue comment (fallback) for PR #${pullNumber}`)
     } catch (e) {
-      warning(`Failed to post review findings: ${e}`)
+      warning(`Failed to post fallback issue comment: ${e}`)
     }
   }
 
