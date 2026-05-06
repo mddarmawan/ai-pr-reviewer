@@ -236,8 +236,9 @@ ${COMMENT_TAG}`
 
   async autoResolveThreads(pullNumber: number, changedFiles: string[]) {
     try {
-      const query = `
-        query($owner:String!, $repo:String!, $pr:Int!, $first:Int!) {
+      // Query review threads via raw GraphQL HTTP call
+      const threadsQuery = {
+        query: `query($owner:String!, $repo:String!, $pr:Int!, $first:Int!) {
           repository(owner:$owner, name:$repo) {
             pullRequest(number:$pr) {
               reviewThreads(first:$first) {
@@ -248,30 +249,27 @@ ${COMMENT_TAG}`
               }
             }
           }
-        }`
+        }`,
+        variables: {owner: repo.owner, repo: repo.repo, pr: pullNumber, first: 100}
+      }
 
-      const vars = {owner: repo.owner, repo: repo.repo, pr: pullNumber, first: 100}
-      const result = await octokit.graphql<{
-        repository: {pullRequest: {reviewThreads: {edges: Array<{
-          node: {id: string, isResolved: boolean, isOutdated: boolean, path: string, line: number, startLine: number | null,
-            comments: {nodes: Array<{body: string}>}}
-        }>}}}
-      }>(query, vars)
+      const threadsResp = await octokit.request('POST /graphql', threadsQuery)
+      const threadsData = threadsResp.data as any
+      const edges = threadsData?.data?.repository?.pullRequest?.reviewThreads?.edges || []
 
       let resolved = 0
-      for (const edge of result.repository.pullRequest.reviewThreads.edges) {
+      for (const edge of edges) {
         const thread = edge.node
         if (thread.isResolved) continue
 
         const firstComment = thread.comments.nodes[0]?.body || ''
         if (!firstComment.includes(COMMENT_TAG) && !firstComment.includes(COMMENT_REPLY_TAG)) continue
 
-        // Resolve if the file was changed or the thread is outdated
         if (changedFiles.includes(thread.path) || thread.isOutdated) {
-          await octokit.graphql(
-            `mutation($id:ID!) { resolveReviewThread(input:{threadId:$id}) { thread { isResolved } } }`,
-            {id: thread.id}
-          )
+          await octokit.request('POST /graphql', {
+            query: `mutation($id:ID!) { resolveReviewThread(input:{threadId:$id}) { thread { isResolved } } }`,
+            variables: {id: thread.id}
+          })
           resolved++
           info(`Auto-resolved thread in ${thread.path} line ${thread.line}`)
         }
