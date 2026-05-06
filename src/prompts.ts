@@ -112,7 +112,9 @@ NO_ISSUES_FOUND
 
 Do not add any other text when there are no issues. Do not say "looks good" or "LGTM" — just \`NO_ISSUES_FOUND\`.
 
-Remember: Report issues at ALL severity levels. Low severity issues are worth flagging too — they help the author improve code quality over time. But don't invent issues where none exist.`
+Remember: Report issues at ALL severity levels. Low severity issues are worth flagging too — they help the author improve code quality over time. But don't invent issues where none exist.
+
+CRITICAL: Only report issues on lines that are NEW or MODIFIED in the diff (lines prefixed with + in the diff). Do NOT flag pre-existing code that was already there before this PR. The surrounding context is provided only for understanding — only changed lines are reviewable.`
 
     this.comment = `Answer the follow-up question directly. Output only the answer — no greetings, no "I'd be happy to", no "let me know if", no conversational filler. Be brief.`
   }
@@ -181,7 +183,7 @@ Remember: Report issues at ALL severity levels. Low severity issues are worth fl
         return `${actualLineNumber.toString().padStart(6, ' ')}|${line}`
       }).join('\n')
 
-      prompt += `\n\n## Code to Review\n\n**File:** ${inputs.filename}\n\n**Relevant file content with line numbers (lines ${startLine}-${endLine}):**\n\`\`\`\n${numberedLines}\n\`\`\`\n\n**Diff of changes:**\n\`\`\`diff\n${inputs.patches}\n\`\`\`\n\nUse the line numbers shown in the numbered file content above (e.g., \`   85|\`) to report exact locations.`
+      prompt += `\n\n## Code to Review\n\n**File:** ${inputs.filename}\n\n**Relevant file content with line numbers (lines ${startLine}-${endLine}):**\n\`\`\`\n${numberedLines}\n\`\`\`\n\n**Diff of changes:**\n\`\`\`diff\n${inputs.patches}\n\`\`\`\n\nUse the line numbers shown in the numbered file content above (e.g., \`   85|\`) to report exact locations. Only report issues on lines that are ADDED or CHANGED (shown with + in the diff). Skip issues in surrounding unchanged code.`
     }
 
     return prompt
