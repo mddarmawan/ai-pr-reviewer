@@ -183,15 +183,11 @@ ${tag}`
     endLine: number,
     message: string
   ) {
-    // Update locations in message to include filename
-    const updatedMessage = message.replace(
-      /<!-- LOCATIONS START\nL(\d+)-L(\d+)\nLOCATIONS END -->/g,
-      `<!-- LOCATIONS START\n${path}#L${startLine}-L${endLine}\nLOCATIONS END -->`
-    )
-
+    // The message already contains LOCATIONS block with filename from parseStructuredReview.
+    // Just wrap it with the greeting and tag.
     const finalMessage = `${COMMENT_GREETING}
 
-${updatedMessage}
+${message}
 
 ${COMMENT_TAG}`
 
@@ -245,11 +241,11 @@ ${statusMsg}
 `
 
     if (this.reviewCommentsBuffer.length === 0) {
-      // Submit empty review with statusMsg and positive feedback
+      // Submit empty review with no-issues message
       info(`Submitting empty review for PR #${pullNumber}`)
       const noIssuesBody = `${COMMENT_GREETING}
 
-### ✅ CodeRabbit reviewed your changes and found no issues!
+✅ Reviewed your changes and found no new issues!
 
 ${statusMsg}
 `
