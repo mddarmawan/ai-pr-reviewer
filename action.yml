@@ -150,13 +150,13 @@ inputs:
     required: false
     default: 'https://api.openai.com'
   openai_light_model:
-    description: 'OpenAI light model'
+    description: 'LLM model for summaries (fast/cheap)'
     required: false
-    default: 'gpt-3.5-turbo'
+    default: 'deepseek-v4-flash'
   openai_heavy_model:
-    description: 'OpenAI heavy model'
+    description: 'LLM model for code review (powerful)'
     required: false
-    default: 'gpt-4'
+    default: 'deepseek-v4-pro'
   openai_model_temperature:
     description: 'OpenAI model temperature'
     required: false
