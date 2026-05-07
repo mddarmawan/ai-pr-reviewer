@@ -673,7 +673,11 @@ ${
 
     await commenter.autoResolveThreads(
       context.payload.pull_request.number,
-      filesAndChanges.map(([filename]) => filename)
+      filesAndChanges.map(([filename, , , patches]) => ({
+        path: filename,
+        startLine: patches[0]?.[0] || 0,
+        endLine: patches[patches.length - 1]?.[1] || 0
+      }))
     )
 
     await commenter.submitReview(

@@ -234,7 +234,10 @@ ${COMMENT_TAG}`
     }
   }
 
-  async autoResolveThreads(pullNumber: number, changedFiles: string[]) {
+  async autoResolveThreads(
+    pullNumber: number,
+    changedRanges: Array<{path: string, startLine: number, endLine: number}>
+  ) {
     try {
       // Query review threads via raw GraphQL HTTP call
       const threadsQuery = {
@@ -265,7 +268,14 @@ ${COMMENT_TAG}`
         const firstComment = thread.comments.nodes[0]?.body || ''
         if (!firstComment.includes(COMMENT_TAG) && !firstComment.includes(COMMENT_REPLY_TAG)) continue
 
-        if (changedFiles.includes(thread.path) || thread.isOutdated) {
+        // Only auto-resolve if the specific lines were actually changed
+        const wasChanged = changedRanges.some(r =>
+          r.path === thread.path &&
+          thread.line != null &&
+          r.startLine <= thread.line &&
+          r.endLine >= thread.line
+        )
+        if (wasChanged || thread.isOutdated) {
           const resolveResp = await octokit.request('POST /graphql', {
             query: `mutation($id:ID!) { resolveReviewThread(input:{threadId:$id}) { thread { isResolved } } }`,
             variables: {id: thread.id}
