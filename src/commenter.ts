@@ -286,6 +286,26 @@ ${COMMENT_TAG}`
   }
 
   async submitReview(pullNumber: number, commitId: string, statusMsg: string) {
+    // Deduplicate: skip issues already covered by an existing bot thread at the same location
+    const existingComments = await this.listReviewComments(pullNumber)
+    const newIssues = this.reviewCommentsBuffer.filter(issue => {
+      const alreadyFlagged = existingComments.some((c: any) =>
+        c.path === issue.path &&
+        c.body.includes(COMMENT_TAG) &&
+        c.line != null &&
+        Math.abs((c.line || 0) - issue.endLine) <= 3 &&
+        (c.start_line == null || issue.startLine === issue.endLine ||
+         Math.abs((c.start_line || c.line || 0) - issue.startLine) <= 3)
+      )
+      if (alreadyFlagged) {
+        info(`Skipping duplicate: ${issue.path}:${issue.startLine}-${issue.endLine}`)
+      }
+      return !alreadyFlagged
+    })
+
+    this.reviewCommentsBuffer.length = 0
+    this.reviewCommentsBuffer.push(...newIssues)
+
     if (this.reviewCommentsBuffer.length === 0) {
       const noIssuesBody = `${COMMENT_GREETING}
 
