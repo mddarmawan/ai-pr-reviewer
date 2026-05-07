@@ -159,7 +159,7 @@ CRITICAL: Only report issues on lines that are NEW or MODIFIED in the diff (line
 
     if (inputs.rawPatch) {
       const numberedPatch = this.renderNumberedPatch(inputs.rawPatch)
-      prompt += `\n\n## Code to Review\n\n**File:** ${inputs.filename}\n\n**Diff — each line prefixed with its exact line number:**\n\`\`\`\n${numberedPatch}\n\`\`\`\n\nOnly report issues on + lines (added/changed). Use the line numbers shown.`
+      prompt += `\n\n## Code to Review\n\n**File:** ${inputs.filename}\n\n\`\`\`\n${numberedPatch}\n\`\`\`\n\n- Lines with \`+\` prefix: NEW/CHANGED code — review these.\n- Lines with \`~\` prefix: pre-existing context for readability — DO NOT flag.\n- Use the line numbers shown.`
     }
 
     return prompt
@@ -168,21 +168,51 @@ CRITICAL: Only report issues on lines that are NEW or MODIFIED in the diff (line
   private renderNumberedPatch(patches: string): string {
     const output: string[] = []
     let currentLine = 0
+    let addedLines: string[] = []
+    let preContext: string[] = []
+    let postContextCount = 0
+
+    const flushHunk = () => {
+      if (addedLines.length > 0) {
+        if (preContext.length > 0) {
+          output.push(...preContext)
+        }
+        output.push(...addedLines)
+        preContext = []
+      }
+      addedLines = []
+      postContextCount = 0
+    }
 
     for (const line of patches.split('\n')) {
       const headerMatch = line.match(/^@@ -(\d+),\d+ \+(\d+),\d+ @@/)
       if (headerMatch) {
+        flushHunk()
         currentLine = parseInt(headerMatch[2], 10) - 1
         output.push(line)
         continue
       }
+      if (line.startsWith('-')) {
+        continue
+      }
       if (line.startsWith('+')) {
         currentLine++
-        output.push(`+${String(currentLine).padStart(5)}|${line.substring(1)}`)
-      } else if (!line.startsWith('-')) {
+        addedLines.push(`+${String(currentLine).padStart(5)}|${line.substring(1)}`)
+        postContextCount = 0
+      } else {
+        // Context line
         currentLine++
+        if (addedLines.length > 0 && postContextCount < 2) {
+          // Show 2 lines of context after changes for readability
+          addedLines.push(` ~${String(currentLine).padStart(5)}|${line}`)
+          postContextCount++
+        } else if (addedLines.length === 0) {
+          // Keep 1 line of context before changes
+          preContext = [` ~${String(currentLine).padStart(5)}|${line}`]
+        }
       }
     }
+    flushHunk()
 
     return output.join('\n')
   }
