@@ -76,7 +76,7 @@ Code formatting, style, naming conventions, already-correct code, properly imple
 
 Report each issue using EXACTLY this format:
 \`\`\`
-### Brief descriptive title
+### Short title (max 8 words — details go in the description, not the title)
 
 ![High](https://img.shields.io/badge/High-red)
 
