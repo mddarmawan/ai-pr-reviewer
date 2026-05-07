@@ -217,7 +217,8 @@ export async function runReview(config: ReviewConfig): Promise<number> {
 }
 
 export async function autoResolveThreads(
-  octokit: any, owner: string, repo: string, pullNumber: number, changedFiles: string[]
+  octokit: any, owner: string, repo: string, pullNumber: number,
+  changedRanges: Array<{path: string, startLine: number, endLine: number}>
 ): Promise<number> {
   const query = `query($owner:String!,$repo:String!,$pr:Int!,$first:Int!){
     repository(owner:$owner,name:$repo){
@@ -240,7 +241,12 @@ export async function autoResolveThreads(
     const t = edge.node
     if (t.isResolved) continue
     if (!(t.comments.nodes[0]?.body || '').includes(COMMENT_TAG)) continue
-    if (!changedFiles.includes(t.path)) continue
+    // Only resolve if the specific lines were changed in the diff
+    const inChangedRange = changedRanges.some(r =>
+      r.path === t.path && t.line != null &&
+      r.startLine <= t.line && r.endLine >= t.line
+    )
+    if (!inChangedRange) continue
 
     const r: any = await octokit.request('POST /graphql', {
       query: `mutation($id:ID!){resolveReviewThread(input:{threadId:$id}){thread{isResolved}}}`,
@@ -254,17 +260,21 @@ export async function autoResolveThreads(
 export async function postReview(config: ReviewConfig, issues: ReviewIssue[]): Promise<number> {
   const {octokit} = config
 
-  // Dedup
+  // Dedup against existing comments AND within the same batch
   const {data: existing} = await octokit.pulls.listReviewComments({
     owner: config.owner, repo: config.repo, pull_number: config.pullNumber, per_page: 100
   })
+  const seen = new Set<string>()
   const newIssues = issues.filter(issue => {
+    const key = `${issue.path}:${issue.endLine}`
+    if (seen.has(key)) { console.log(`Skipping batch duplicate: ${key}`); return false }
     const dup = existing.some((c: any) =>
       c.path === issue.path && c.body.includes(COMMENT_TAG) &&
       c.line != null && Math.abs((c.line || 0) - issue.endLine) <= 3
     )
-    if (dup) console.log(`Skipping duplicate: ${issue.path}:${issue.startLine}-${issue.endLine}`)
-    return !dup
+    if (dup) { console.log(`Skipping duplicate: ${issue.path}:${issue.startLine}-${issue.endLine}`); return false }
+    seen.add(key)
+    return true
   })
 
   if (newIssues.length === 0) {
