@@ -168,51 +168,21 @@ CRITICAL: Only report issues on lines that are NEW or MODIFIED in the diff (line
   private renderNumberedPatch(patches: string): string {
     const output: string[] = []
     let currentLine = 0
-    let block: string[] = []
-    let preContext: string[] = []
-    let hasAddedLines = false
-    let postContextCount = 0
-
-    const flushBlock = () => {
-      if (hasAddedLines && block.length > 0) {
-        output.push(...preContext, ...block)
-      }
-      block = []
-      preContext = []
-      hasAddedLines = false
-      postContextCount = 0
-    }
 
     for (const line of patches.split('\n')) {
       const headerMatch = line.match(/^@@ -(\d+),\d+ \+(\d+),\d+ @@/)
       if (headerMatch) {
-        flushBlock()
         currentLine = parseInt(headerMatch[2], 10) - 1
         output.push(line)
         continue
       }
-      if (line.startsWith('-')) {
-        continue
-      }
       if (line.startsWith('+')) {
         currentLine++
-        hasAddedLines = true
-        postContextCount = 0
-        block.push(`+ ${String(currentLine).padStart(5)}|${line.substring(1)}`)
-      } else {
+        output.push(`+${String(currentLine).padStart(5)}|${line.substring(1)}`)
+      } else if (!line.startsWith('-')) {
         currentLine++
-        if (hasAddedLines && postContextCount < 3) {
-          // Show up to 3 context lines after changes
-          block.push(`  ${String(currentLine).padStart(5)}|${line}`)
-          postContextCount++
-        } else if (!hasAddedLines) {
-          // Keep 2 lines of context before changes
-          preContext.push(`  ${String(currentLine).padStart(5)}|${line}`)
-          if (preContext.length > 2) preContext.shift()
-        }
       }
     }
-    flushBlock()
 
     return output.join('\n')
   }
