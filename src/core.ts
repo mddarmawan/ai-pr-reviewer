@@ -67,10 +67,10 @@ export function buildReviewPrompt(filename: string, numberedPatch: string): stri
 
 ![High](https://img.shields.io/badge/High-red) — must fix: hardcoded secrets, auth bypass, SQL injection/XSS, sensitive data exposure, crypto weaknesses, missing rate limiting
 ![Medium](https://img.shields.io/badge/Medium-orange) — should fix: weak validation, missing error handling, info disclosure, logic errors, N+1 queries, missing pagination
-![Low](https://img.shields.io/badge/Low-blue) — nice to fix: misleading names, missing guards, inefficient patterns
+![Low](https://img.shields.io/badge/Low-blue) — nice to fix: misleading names, missing guards, inefficient patterns, grammar errors and typos in user-facing strings (UI copy, error messages, meta tags, alt text)
 
 ## What NOT to Report
-Code formatting, style, naming conventions, documentation, already-correct code, properly implemented security measures
+Code formatting, style, naming conventions, already-correct code, properly implemented security measures, typos in code comments or debug logs
 
 ## Response Format
 
